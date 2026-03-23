@@ -1,18 +1,24 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useMemo } from "react";
 
 import {
   buildMissionRecommendations,
-  type MissionRecommendationViewModel,
   type SkillRecommendationLike,
+  type MissionRecommendationViewModel,
 } from "@/lib/missionRecommendations";
+import {
+  buildMissionCatalogSkillRecommendations,
+  type LaunchAchievementLike,
+} from "@/lib/missionCatalogRecommendations";
+import { useLaunchCatalog } from "@/lib/useLaunchCatalog";
 import type { LearningPath } from "@/lib/types";
 
 interface UseMissionRecommendationsOptions {
   surface: "home" | "missions" | "progress";
   activePathId?: string | null;
   activePath?: LearningPath | null;
+  completedAchievements?: LaunchAchievementLike[];
   limit?: number;
 }
 
@@ -25,37 +31,21 @@ export function useMissionRecommendations({
   surface,
   activePathId = null,
   activePath = null,
+  completedAchievements = [],
   limit = 6,
 }: UseMissionRecommendationsOptions): UseMissionRecommendationsReturn {
-  const [skillRecommendations, setSkillRecommendations] = useState<
-    SkillRecommendationLike[]
-  >([]);
-  const [isLoading, setIsLoading] = useState(true);
+  const { paths: catalogPaths, isLoading } = useLaunchCatalog();
 
-  useEffect(() => {
-    let cancelled = false;
-
-    setIsLoading(true);
-    fetch(`/api/learn/recommendations?limit=${limit}`)
-      .then((res) => (res.ok ? res.json() : { recommendations: [] }))
-      .then((data) => {
-        if (cancelled) return;
-        setSkillRecommendations(data.recommendations ?? []);
-      })
-      .catch(() => {
-        if (cancelled) return;
-        setSkillRecommendations([]);
-      })
-      .finally(() => {
-        if (!cancelled) {
-          setIsLoading(false);
-        }
-      });
-
-    return () => {
-      cancelled = true;
-    };
-  }, [limit]);
+  const skillRecommendations = useMemo<SkillRecommendationLike[]>(
+    () =>
+      buildMissionCatalogSkillRecommendations(catalogPaths, {
+        activePathId,
+        activePath,
+        completedAchievements,
+        limit,
+      }),
+    [activePath, activePathId, catalogPaths, completedAchievements, limit],
+  );
 
   const recommendations = useMemo(
     () =>
@@ -69,4 +59,3 @@ export function useMissionRecommendations({
 
   return { recommendations, isLoading };
 }
-

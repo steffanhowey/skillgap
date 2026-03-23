@@ -65,6 +65,7 @@ export function useProfilePageData({
     surface: "progress",
     activePath: activeMission?.path ?? null,
     activePathId: activeMission?.path.id ?? null,
+    completedAchievements: skillProfile.achievements,
   });
 
   const [evidenceArchive, setEvidenceArchive] = useState<ProfileAchievement[]>(

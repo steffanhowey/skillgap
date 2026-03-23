@@ -8,6 +8,7 @@ import { Card } from "@/components/ui/Card";
 import { LaunchpadHero } from "@/components/home/LaunchpadHero";
 import { PathCardSkeleton } from "@/components/learn/PathCardSkeleton";
 import { useLearnSearch } from "@/lib/useLearnSearch";
+import { useLaunchCatalog } from "@/lib/useLaunchCatalog";
 import { useSkillProfile } from "@/lib/useSkillProfile";
 import {
   MISSIONS_ROUTE,
@@ -19,6 +20,7 @@ import {
   buildLaunchFrontDoorBuckets,
   CORE_LAUNCH_FRONT_DOOR_STEPS,
 } from "@/lib/launchFrontDoor";
+import { getCompletedLaunchLaneKeys } from "@/lib/missionCatalogRecommendations";
 import { buildMissionRecommendations } from "@/lib/missionRecommendations";
 import {
   getMissionLaunchDomain,
@@ -26,7 +28,10 @@ import {
 } from "@/lib/launchTaxonomy";
 import { useMissionRecommendations } from "@/lib/useMissionRecommendations";
 import type { LearningPath, LearningProgress } from "@/lib/types";
-import { getLaunchMissionLaneKey } from "@/lib/launchMissionContent";
+import {
+  getLaunchMissionLaneKey,
+  isApprovedLaunchMissionLaneKey,
+} from "@/lib/launchMissionContent";
 
 interface CategoryDef {
   value: string;
@@ -97,12 +102,15 @@ export function MissionsPage() {
     error,
   } = useLearnSearch();
   const { achievements } = useSkillProfile();
+  const { paths: launchCatalogPaths, isLoading: launchCatalogLoading } =
+    useLaunchCatalog();
   const activeMission = inProgressPaths[0] ?? null;
   const { recommendations, isLoading: recommendationsLoading } =
     useMissionRecommendations({
       surface: "home",
       activePathId: activeMission?.path.id ?? null,
       activePath: activeMission?.path ?? null,
+      completedAchievements: achievements,
     });
 
   const [category, setCategory] = useState("all");
@@ -133,9 +141,22 @@ export function MissionsPage() {
     () => new Set(achievements.map((achievement) => achievement.path_id)),
     [achievements],
   );
+  const completedLaunchLaneKeys = useMemo(
+    () => new Set(getCompletedLaunchLaneKeys(achievements, launchCatalogPaths)),
+    [achievements, launchCatalogPaths],
+  );
   const activePathIds = useMemo(
     () => new Set(inProgressPaths.map((entry) => entry.path.id)),
     [inProgressPaths],
+  );
+  const launchCatalogPool = useMemo(
+    () => [
+      ...inProgressPaths
+        .map(({ path }) => path)
+        .filter((path) => isApprovedLaunchMissionLaneKey(path.mission_lane_key)),
+      ...launchCatalogPaths,
+    ],
+    [inProgressPaths, launchCatalogPaths],
   );
 
   const allPaths = useMemo(() => {
@@ -148,9 +169,11 @@ export function MissionsPage() {
   }, [discoveryPaths, inProgressPaths]);
 
   const fallbackMissionRecommendations = useMemo(() => {
-    const availableFallbackPaths = discoveryPaths.filter((path) => {
+    const availableFallbackPaths = launchCatalogPaths.filter((path) => {
       if (activePathIds.has(path.id)) return false;
       if (completedPathIds.has(path.id)) return false;
+      const laneKey = getLaunchMissionLaneKey(path);
+      if (laneKey && completedLaunchLaneKeys.has(laneKey)) return false;
       if (
         recommendations.some(
           (recommendation) => recommendation.path.id === path.id,
@@ -177,8 +200,9 @@ export function MissionsPage() {
   }, [
     activeMission?.path,
     activePathIds,
+    completedLaunchLaneKeys,
     completedPathIds,
-    discoveryPaths,
+    launchCatalogPaths,
     recommendations,
   ]);
 
@@ -199,7 +223,7 @@ export function MissionsPage() {
   const heroIsLoading =
     isInitialMissionLoad ||
     (!activeMission &&
-      recommendationsLoading &&
+      (launchCatalogLoading || recommendationsLoading) &&
       recommendations.length === 0 &&
       fallbackMissionRecommendations.length === 0);
 
@@ -244,8 +268,16 @@ export function MissionsPage() {
     return paths;
   }, [allPaths, category, completedPathIds, inProgressPaths, progressMap]);
   const launchFrontDoor = useMemo(
-    () => buildLaunchFrontDoorBuckets(allPaths.filter((path) => !completedPathIds.has(path.id))),
-    [allPaths, completedPathIds],
+    () =>
+      buildLaunchFrontDoorBuckets(
+        launchCatalogPool.filter((path) => {
+          const laneKey = getLaunchMissionLaneKey(path);
+          if (!laneKey) return false;
+          if (completedPathIds.has(path.id)) return false;
+          return !completedLaunchLaneKeys.has(laneKey);
+        }),
+      ),
+    [completedLaunchLaneKeys, completedPathIds, launchCatalogPool],
   );
   const sortedDiscoveryPaths = useMemo(() => {
     const curatedIds = new Set(
@@ -508,6 +540,15 @@ function LaunchFrontDoorSection({
   progressByPathId: Map<string, LearningProgress>;
   onOpenMission: (path: LearningPath, progress: LearningProgress | null) => void;
 }) {
+  const visibleCoreSteps = CORE_LAUNCH_FRONT_DOOR_STEPS.filter((step) =>
+    corePaths.some((path) => getLaunchMissionLaneKey(path) === step.laneKey),
+  );
+  const hasFullCorePath =
+    visibleCoreSteps.length === CORE_LAUNCH_FRONT_DOOR_STEPS.length;
+  const launchPathDescription = hasFullCorePath
+    ? "Start with these three missions in order. Each one is built to finish in one session and end in a real artifact you can use next."
+    : "Start with the published core missions in order. Missing steps stay hidden until that lane is available.";
+
   return (
     <section className="space-y-5">
       <Card className="p-5 sm:p-6">
@@ -520,12 +561,12 @@ function LaunchFrontDoorSection({
               Go from better AI thinking to better marketing output to better workflow design.
             </h2>
             <p className="max-w-[50rem] text-sm leading-7 text-shell-500">
-              Start with these three missions in order. Each one is built to finish in one session and end in a real artifact you can use next.
+              {launchPathDescription}
             </p>
           </div>
 
           <div className="grid gap-3 lg:grid-cols-3">
-            {CORE_LAUNCH_FRONT_DOOR_STEPS.map((step) => (
+            {visibleCoreSteps.map((step) => (
               <div
                 key={step.laneKey}
                 className="rounded-[var(--sg-radius-lg)] border border-[var(--sg-shell-border)] px-4 py-4"

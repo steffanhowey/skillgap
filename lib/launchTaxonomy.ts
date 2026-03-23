@@ -9,6 +9,7 @@ export type LaunchDomainKey =
   | "workflow-design-operations";
 
 export type MissionLaunchDomainSource =
+  | "metadata"
   | "skill-tag"
   | "legacy-domain"
   | "keyword"
@@ -181,6 +182,7 @@ const LAUNCH_ROOM_PREFERENCE_ORDER: Record<LaunchDomainKey, LaunchRoomKey[]> = {
 };
 
 const DOMAIN_SOURCE_PRIORITY: Record<MissionLaunchDomainSource, number> = {
+  metadata: 5,
   "skill-tag": 4,
   "legacy-domain": 3,
   keyword: 2,
@@ -217,6 +219,31 @@ function toLaunchDomain(
     shortLabel: definition.shortLabel,
     source,
   };
+}
+
+function getPersistedMetadataDomain(path: LearningPath): MissionLaunchDomain | null {
+  const explicitDomain = path.mission_launch_domain;
+  if (
+    explicitDomain &&
+    LAUNCH_DOMAIN_BY_KEY.has(explicitDomain as LaunchDomainKey)
+  ) {
+    return toLaunchDomain(explicitDomain as LaunchDomainKey, "metadata");
+  }
+
+  const explicitLaneKey = path.mission_lane_key;
+  if (!explicitLaneKey) {
+    return null;
+  }
+
+  const [, derivedDomainKey] = explicitLaneKey.split(":");
+  if (
+    !derivedDomainKey ||
+    !LAUNCH_DOMAIN_BY_KEY.has(derivedDomainKey as LaunchDomainKey)
+  ) {
+    return null;
+  }
+
+  return toLaunchDomain(derivedDomainKey as LaunchDomainKey, "metadata");
 }
 
 function getSkillTagDomain(path: LearningPath): MissionLaunchDomain | null {
@@ -283,6 +310,7 @@ function getKeywordDomain(path: LearningPath): MissionLaunchDomain | null {
 
 export function getMissionLaunchDomain(path: LearningPath): MissionLaunchDomain {
   return (
+    getPersistedMetadataDomain(path) ??
     getSkillTagDomain(path) ??
     getLegacyDomain(path) ??
     getKeywordDomain(path) ??
@@ -305,4 +333,3 @@ export function getMissionLaunchDomainPriority(
 ): number {
   return DOMAIN_SOURCE_PRIORITY[getMissionLaunchDomain(path).source];
 }
-

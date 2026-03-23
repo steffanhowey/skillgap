@@ -87,6 +87,7 @@ export interface SkillGaps {
 export interface ProfileAchievement {
   id: string;
   path_id: string;
+  mission_lane_key?: string | null;
   path_title: string;
   path_topics: string[];
   items_completed: number;

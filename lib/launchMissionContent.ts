@@ -4,7 +4,7 @@ import {
 } from "@/lib/launchTaxonomy";
 import type { LearningPath } from "@/lib/types";
 
-type LaunchMissionTopic =
+export type LaunchMissionTopic =
   | "prompt-engineering"
   | "claude-code"
   | "github-copilot";
@@ -26,7 +26,7 @@ export interface LaunchMissionContent {
   cardSupportLine: string;
 }
 
-const APPROVED_LAUNCH_TOPICS: LaunchMissionTopic[] = [
+export const APPROVED_LAUNCH_TOPICS: LaunchMissionTopic[] = [
   "prompt-engineering",
   "claude-code",
   "github-copilot",
@@ -188,22 +188,61 @@ const TRANSITION_LINES = new Map<string, string>([
   ],
 ]);
 
+const APPROVED_LAUNCH_MISSION_LANE_KEY_SET = new Set<LaunchMissionLaneKey>(
+  Object.keys(LAUNCH_MISSION_CONTENT) as LaunchMissionLaneKey[],
+);
+
+export const APPROVED_LAUNCH_MISSION_LANE_KEYS = Object.freeze(
+  [...APPROVED_LAUNCH_MISSION_LANE_KEY_SET],
+);
+
+function resolveLaunchMissionTopic(
+  topicSlug: string | null | undefined,
+): LaunchMissionTopic | null {
+  if (!topicSlug) return null;
+
+  return APPROVED_LAUNCH_TOPICS.find((topic) => topic === topicSlug) ?? null;
+}
+
 function getLaunchMissionTopic(path: LearningPath): LaunchMissionTopic | null {
-  return APPROVED_LAUNCH_TOPICS.find((topic) => path.topics.includes(topic)) ?? null;
+  const explicitTopic = resolveLaunchMissionTopic(path.mission_topic_slug);
+  if (explicitTopic) return explicitTopic;
+
+  return (
+    APPROVED_LAUNCH_TOPICS.find((topic) => path.topics.includes(topic)) ?? null
+  );
+}
+
+export function isApprovedLaunchMissionLaneKey(
+  laneKey: string | null | undefined,
+): laneKey is LaunchMissionLaneKey {
+  if (!laneKey) return false;
+  return APPROVED_LAUNCH_MISSION_LANE_KEY_SET.has(
+    laneKey as LaunchMissionLaneKey,
+  );
+}
+
+export function buildLaunchMissionLaneKey(
+  topicSlug: string | null | undefined,
+  launchDomainKey: LaunchDomainKey | null | undefined,
+): LaunchMissionLaneKey | null {
+  const topic = resolveLaunchMissionTopic(topicSlug);
+  if (!topic || !launchDomainKey) return null;
+
+  const laneKey = `${topic}:${launchDomainKey}` as LaunchMissionLaneKey;
+  return isApprovedLaunchMissionLaneKey(laneKey) ? laneKey : null;
 }
 
 export function getLaunchMissionLaneKey(
   path: LearningPath,
 ): LaunchMissionLaneKey | null {
+  if (isApprovedLaunchMissionLaneKey(path.mission_lane_key)) {
+    return path.mission_lane_key;
+  }
+
   const topic = getLaunchMissionTopic(path);
-  if (!topic) return null;
-
   const domain = getMissionLaunchDomain(path);
-  const laneKey = `${topic}:${domain.key}` as LaunchMissionLaneKey;
-  const content = LAUNCH_MISSION_CONTENT[laneKey];
-
-  if (!content || !content.missionPromise) return null;
-  return laneKey;
+  return buildLaunchMissionLaneKey(topic, domain.key);
 }
 
 export function getLaunchMissionContent(

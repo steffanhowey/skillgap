@@ -27,6 +27,22 @@ function createPath(overrides: Partial<LearningPath> = {}): LearningPath {
 }
 
 describe("launchMissionContent", () => {
+  it("uses persisted lane metadata before inference", () => {
+    const path = createPath({
+      mission_lane_key: "claude-code:positioning-messaging",
+      mission_topic_slug: "claude-code",
+      mission_launch_domain: "positioning-messaging",
+      topics: ["claude-code"],
+    });
+
+    expect(getLaunchMissionLaneKey(path)).toBe(
+      "claude-code:positioning-messaging",
+    );
+    expect(getLaunchMissionContent(path)?.artifactLabel).toBe(
+      "Claude Code Internal Value Matrix",
+    );
+  });
+
   it("returns launch content for approved launch lanes only", () => {
     const promptResearch = createPath({
       topics: ["prompt-engineering"],

@@ -28,6 +28,27 @@ function createPath(overrides: Partial<LearningPath> = {}): LearningPath {
 }
 
 describe("launch taxonomy", () => {
+  it("prefers persisted mission metadata over skill-tag or keyword inference", () => {
+    const path = createPath({
+      mission_launch_domain: "positioning-messaging",
+      mission_lane_key: "prompt-engineering:positioning-messaging",
+      skill_tags: [
+        {
+          skill_slug: "research-synthesis",
+          skill_name: "Research Synthesis",
+          domain_name: "Strategy & Planning",
+          relevance: "primary",
+        },
+      ],
+      title: "Research workflow",
+    });
+
+    expect(getMissionLaunchDomain(path)).toMatchObject({
+      key: "positioning-messaging",
+      source: "metadata",
+    });
+  });
+
   it("resolves exact skill-tag overrides before legacy or keyword fallbacks", () => {
     const path = createPath({
       title: "Campaign research",
@@ -115,14 +136,8 @@ describe("launch taxonomy", () => {
 
   it("returns short labels and room preference order for launch surfaces", () => {
     const path = createPath({
-      skill_tags: [
-        {
-          skill_slug: "research-synthesis",
-          skill_name: "Research Synthesis",
-          domain_name: "Strategy & Planning",
-          relevance: "primary",
-        },
-      ],
+      mission_lane_key: "prompt-engineering:research-insight",
+      mission_launch_domain: "research-insight",
     });
 
     expect(getMissionLaunchDomainShortLabel(path)).toBe("Research");

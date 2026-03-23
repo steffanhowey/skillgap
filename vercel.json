@@ -49,10 +49,6 @@
       "schedule": "0 */6 * * *"
     },
     {
-      "path": "/api/learn/discover",
-      "schedule": "0 5,17 * * *"
-    },
-    {
       "path": "/api/intelligence/practitioner-aggregate",
       "schedule": "0 3 * * *"
     },

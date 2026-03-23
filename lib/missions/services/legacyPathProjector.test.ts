@@ -167,6 +167,10 @@ describe("legacyPathProjector", () => {
     expect(row.is_cached).toBe(false);
     expect(row.is_discoverable).toBe(false);
     expect(row.generation_engine).toBe("mission_projection");
+    expect(row.mission_topic_slug).toBe("prompt-engineering");
+    expect(row.mission_family).toBe("research-synthesis");
+    expect(row.mission_launch_domain).toBe("research-insight");
+    expect(row.mission_lane_key).toBe("prompt-engineering:research-insight");
     expect(row.items).toHaveLength(1);
     expect(row.items[0]?.task_type).toBe("do");
     expect(row.items[0]?.check).toBeNull();

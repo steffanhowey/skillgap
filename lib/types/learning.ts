@@ -223,6 +223,11 @@ export interface LearningPath {
   start_count: number;
   completion_count: number;
   created_at: string;
+  /** Canonical mission metadata written on projected launch rows */
+  mission_topic_slug?: string | null;
+  mission_family?: string | null;
+  mission_launch_domain?: string | null;
+  mission_lane_key?: string | null;
   /** Skills this path develops (populated from fp_skill_tags) */
   skill_tags?: Array<{
     skill_slug: string;

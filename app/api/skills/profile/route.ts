@@ -44,7 +44,7 @@ export async function GET(): Promise<Response> {
       admin.from("fp_user_skills").select("*").eq("user_id", user.id),
       admin
         .from("fp_achievements")
-        .select("id, path_id, path_title, path_topics, items_completed, time_invested_seconds, difficulty_level, share_slug, skill_receipt, completed_at")
+        .select("id, path_id, path_title, path_topics, items_completed, time_invested_seconds, difficulty_level, share_slug, skill_receipt, completed_at, fp_learning_paths(mission_lane_key)")
         .eq("user_id", user.id)
         .order("completed_at", { ascending: false })
         .limit(5),
@@ -290,6 +290,13 @@ export async function GET(): Promise<Response> {
     (a: Record<string, unknown>) => ({
       id: a.id,
       path_id: a.path_id,
+      mission_lane_key:
+        (
+          a.fp_learning_paths as
+            | { mission_lane_key?: string | null }
+            | null
+            | undefined
+        )?.mission_lane_key ?? null,
       path_title: a.path_title,
       path_topics: a.path_topics,
       items_completed: a.items_completed,

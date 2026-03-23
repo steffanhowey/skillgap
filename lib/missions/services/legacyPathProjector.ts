@@ -1,6 +1,7 @@
 import { randomUUID } from "crypto";
 import { createClient as createAdminClient } from "@/lib/supabase/admin";
 import { mapPathRow } from "@/lib/learn/pathGenerator";
+import { buildLaunchMissionLaneKey } from "@/lib/launchMissionContent";
 import type { LearningPath, MissionBriefing, PathItem } from "@/lib/types";
 import type { MissionBriefV2 } from "@/lib/missions/types/missionBriefV2";
 import type { FluencyLevel } from "@/lib/missions/types/common";
@@ -32,6 +33,10 @@ interface LearningPathRow {
   source_mission_brief_id: string;
   generation_engine: "mission_projection";
   canonical_stable_key: string;
+  mission_topic_slug: string;
+  mission_family: MissionBriefV2["identity"]["missionFamily"];
+  mission_launch_domain: MissionBriefV2["identity"]["launchDomain"];
+  mission_lane_key: string | null;
   view_count: number;
   start_count: number;
   completion_count: number;
@@ -55,6 +60,7 @@ export async function projectMissionBriefToHiddenLearningPath(
   ]);
 
   if (existingProjection) {
+    await syncProjectedLearningPathMetadata(existingProjection.learningPathId, brief);
     const learningPath = await getLearningPathById(existingProjection.learningPathId);
     if (learningPath) {
       return {
@@ -75,6 +81,7 @@ export async function projectMissionBriefToHiddenLearningPath(
       supersededAt: null,
     });
 
+    await syncProjectedLearningPathMetadata(existingPathRow.id, brief);
     const learningPath = await getLearningPathById(existingPathRow.id);
     if (!learningPath) {
       throw new Error(
@@ -136,6 +143,48 @@ async function getLearningPathById(pathId: string): Promise<LearningPath | null>
   return data ? mapPathRow(data as Record<string, unknown>) : null;
 }
 
+function buildProjectedLearningPathMetadata(
+  brief: MissionBriefV2,
+): Pick<
+  LearningPathRow,
+  | "mission_topic_slug"
+  | "mission_family"
+  | "mission_launch_domain"
+  | "mission_lane_key"
+> {
+  return {
+    mission_topic_slug: brief.topic.topicSlug,
+    mission_family: brief.identity.missionFamily,
+    mission_launch_domain: brief.identity.launchDomain,
+    mission_lane_key: buildLaunchMissionLaneKey(
+      brief.topic.topicSlug,
+      brief.identity.launchDomain,
+    ),
+  };
+}
+
+async function syncProjectedLearningPathMetadata(
+  pathId: string,
+  brief: MissionBriefV2,
+): Promise<void> {
+  const admin = createAdminClient();
+  const { error } = await admin
+    .from("fp_learning_paths")
+    .update({
+      source_mission_brief_id: brief.missionId,
+      generation_engine: "mission_projection",
+      canonical_stable_key: brief.stableKey,
+      ...buildProjectedLearningPathMetadata(brief),
+    } satisfies Partial<LearningPathRow>)
+    .eq("id", pathId);
+
+  if (error) {
+    throw new Error(
+      `[missions/legacyPathProjector] metadata sync failed: ${error.message}`,
+    );
+  }
+}
+
 function buildProjectedLearningPathRow(brief: MissionBriefV2): LearningPathRow {
   const tool = resolveMissionProjectionTool(brief);
   const doTask = buildProjectedDoTask(brief, tool);
@@ -158,6 +207,7 @@ function buildProjectedLearningPathRow(brief: MissionBriefV2): LearningPathRow {
     source_mission_brief_id: brief.missionId,
     generation_engine: "mission_projection",
     canonical_stable_key: brief.stableKey,
+    ...buildProjectedLearningPathMetadata(brief),
     view_count: 0,
     start_count: 0,
     completion_count: 0,
@@ -273,6 +323,7 @@ function mapGuidanceLevel(
 }
 
 export const __testing = {
+  buildProjectedLearningPathMetadata,
   buildProjectedLearningPathRow,
   buildProjectedToolPrompt,
   buildProjectedDoTask,

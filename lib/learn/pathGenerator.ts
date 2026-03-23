@@ -53,6 +53,10 @@ export function mapPathRow(row: Record<string, unknown>): LearningPath {
     start_count: (row.start_count as number) ?? 0,
     completion_count: (row.completion_count as number) ?? 0,
     created_at: (row.created_at as string) ?? new Date().toISOString(),
+    mission_topic_slug: (row.mission_topic_slug as string) ?? null,
+    mission_family: (row.mission_family as string) ?? null,
+    mission_launch_domain: (row.mission_launch_domain as string) ?? null,
+    mission_lane_key: (row.mission_lane_key as string) ?? null,
   };
 }
 

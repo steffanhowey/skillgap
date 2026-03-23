@@ -21,12 +21,25 @@ const SEED_QUERIES = [
 
 const MAX_GENERATIONS_PER_RUN = 5;
 const CACHE_TTL_HOURS = 48;
+const LEGACY_DISCOVERY_ENABLED =
+  process.env.LEGACY_LEARN_DISCOVERY_ENABLED !== "false";
+
+function getDisabledResponse(): NextResponse {
+  return NextResponse.json({
+    disabled: true,
+    reason: "legacy_discovery_disabled",
+  });
+}
 
 /**
  * GET /api/learn/discover
  * Cron: pre-generate discovery learning paths for popular topics.
  */
 export async function GET(): Promise<NextResponse> {
+  if (!LEGACY_DISCOVERY_ENABLED) {
+    return getDisabledResponse();
+  }
+
   const event = await startPipelineEvent(
     "path_discovery",
     "Learning Path Discovery"
@@ -131,6 +144,10 @@ export async function GET(): Promise<NextResponse> {
  * Manual trigger: accepts optional { queries: string[] } for admin seeding.
  */
 export async function POST(request: Request): Promise<NextResponse> {
+  if (!LEGACY_DISCOVERY_ENABLED) {
+    return getDisabledResponse();
+  }
+
   let body: { queries?: string[] } = {};
   try {
     body = await request.json();

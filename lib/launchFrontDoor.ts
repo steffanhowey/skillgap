@@ -15,6 +15,11 @@ export const EXTENDED_LAUNCH_ORDER: LaunchMissionLaneKey[] = [
   "github-copilot:research-insight",
 ];
 
+export const APPROVED_LAUNCH_ORDER: LaunchMissionLaneKey[] = [
+  ...CORE_LAUNCH_PATH_ORDER,
+  ...EXTENDED_LAUNCH_ORDER,
+];
+
 export interface LaunchFrontDoorStep {
   laneKey: LaunchMissionLaneKey;
   stepLabel: string;
