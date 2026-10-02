@@ -13,7 +13,7 @@ export default function FluencyStep({ onSelect }: FluencyStepProps) {
         Where are you with AI right now?
       </h1>
       <p className="mt-2 text-[var(--sg-shell-600)]">
-        No wrong answer — this helps us calibrate your first experience.
+        No wrong answer. We&apos;ll use this to pick the right first mission.
       </p>
 
       <div className="mt-8 flex flex-col gap-3">

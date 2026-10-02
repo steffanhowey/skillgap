@@ -13,6 +13,8 @@ export type LaunchMissionLaneKey = `${LaunchMissionTopic}:${LaunchDomainKey}`;
 
 export interface LaunchMissionContent {
   laneKey: LaunchMissionLaneKey;
+  /** Short title for the lesson. Falls back to the path title. */
+  playerTitle?: string;
   missionPromise: string;
   whyNow: string;
   artifactLabel: string;
@@ -24,6 +26,10 @@ export interface LaunchMissionContent {
   useItNext: string;
   nextMissionBridge: string | null;
   cardSupportLine: string;
+  watchCoaching: string;
+  doCoaching: string;
+  checkCoaching: string;
+  reflectCoaching: string;
 }
 
 export const APPROVED_LAUNCH_TOPICS: LaunchMissionTopic[] = [
@@ -35,31 +41,40 @@ export const APPROVED_LAUNCH_TOPICS: LaunchMissionTopic[] = [
 const LAUNCH_MISSION_CONTENT: Partial<Record<LaunchMissionLaneKey, LaunchMissionContent>> = {
   "prompt-engineering:research-insight": {
     laneKey: "prompt-engineering:research-insight",
+    playerTitle: "Write a better brief for ChatGPT",
     missionPromise:
-      "Upgrade one recurring content-brief drafting workflow with prompt structures that make AI output more reliable.",
+      "Stop pasting “write me a brief” into ChatGPT. Leave with a method for the next content brief you actually draft.",
     whyNow:
-      "The edge is no longer access to AI. It is getting reliable, specific output in the workflow you repeat every week.",
-    artifactLabel: "Content-Brief Prompt Upgrade Brief",
+      "Most people already have ChatGPT. The problem is the ask is vague, so the brief comes back generic.",
+    artifactLabel: "Next-brief method",
     artifactSummary:
-      "A short workflow brief for AI-assisted content-brief drafting that names the workflow, compares two prompt structures, flags two failure modes, and ends with one recommended workflow change.",
+      "A short method you can reuse the next time you draft a content brief with AI.",
     scopeGuardrails:
-      "Pick one workflow only: AI-assisted content-brief drafting. This mission fails if it turns into general prompt advice or a list of best practices.",
+      "Stay with one real briefing job. This mission fails if it turns into general prompt advice.",
     artifactChecklist: [
-      "Name one recurring content-brief drafting workflow and the bottleneck it creates.",
-      "Include two specific prompt structures a marketer could reuse in that workflow.",
-      "Call out two concrete failure modes that weaken reliability or specificity.",
-      "End with one recommended workflow change backed by source-based reasoning.",
+      "You recognize the generic brief you usually get back.",
+      "You name the content job you actually brief.",
+      "You pick a better ask than “make it good.”",
+      "You leave with one change for the next draft.",
     ],
     strongOutputShape:
-      "A strong brief reads like a recommendation memo for one workflow, not a lesson on prompt engineering.",
+      "A strong result is a method you would paste next time, not a lesson about prompting.",
     completionStandard:
-      "Done means another marketer could use this brief to change how they draft the next content brief with AI.",
+      "Done means you would use this the next time you open ChatGPT to draft a content brief.",
     useItNext:
-      "Use it the next time you draft a content brief with AI and compare the new prompt structures against your old approach.",
+      "Open ChatGPT the next time you have a real brief and start with this ask instead of “make it good.”",
     nextMissionBridge:
-      "You tightened the thinking. Next, turn that structure into a sharper message asset.",
+      "You tightened the ask. Next, turn that into a sharper message asset.",
     cardSupportLine:
-      "Build a brief that upgrades one content-brief drafting workflow.",
+      "Fix how you brief AI when you draft content.",
+    watchCoaching:
+      "Watch why a vague ask comes back generic.",
+    doCoaching:
+      "See a weak brief, name your job, pick a better ask.",
+    checkCoaching:
+      "Look at the method you just made. Would you use it next time?",
+    reflectCoaching:
+      "Name the next brief you will use this on.",
   },
   "prompt-engineering:positioning-messaging": {
     laneKey: "prompt-engineering:positioning-messaging",
@@ -88,6 +103,14 @@ const LAUNCH_MISSION_CONTENT: Partial<Record<LaunchMissionLaneKey, LaunchMission
       "You improved the output. Next, see where AI changes the workflow itself.",
     cardSupportLine:
       "Make a message matrix that sharpens AI-assisted writing.",
+    watchCoaching:
+      "Watch for one audience, one scenario, and proof you can put in a matrix.",
+    doCoaching:
+      "Open the tool and make the Prompt-Ready Message Matrix for one audience.",
+    checkCoaching:
+      "Check that the matrix has one core message and two usable variations.",
+    reflectCoaching:
+      "Write how you will use this matrix in the next draft session.",
   },
   "claude-code:research-insight": {
     laneKey: "claude-code:research-insight",
@@ -116,6 +139,14 @@ const LAUNCH_MISSION_CONTENT: Partial<Record<LaunchMissionLaneKey, LaunchMission
       "If you want to go deeper, next practice translating that workflow value into stakeholder-ready language.",
     cardSupportLine:
       "Evaluate one workflow where Claude Code could create real leverage.",
+    watchCoaching:
+      "Watch for one marketing workflow where Claude Code fits and one where it does not.",
+    doCoaching:
+      "Open the tool and write the Claude Code Workflow Opportunity Brief.",
+    checkCoaching:
+      "Check that the brief ends with test, wait, or skip.",
+    reflectCoaching:
+      "Write the first experiment you would run, or why you would wait.",
   },
   "claude-code:positioning-messaging": {
     laneKey: "claude-code:positioning-messaging",
@@ -143,6 +174,14 @@ const LAUNCH_MISSION_CONTENT: Partial<Record<LaunchMissionLaneKey, LaunchMission
     nextMissionBridge: null,
     cardSupportLine:
       "Turn one Claude Code workflow into a usable internal value matrix.",
+    watchCoaching:
+      "Watch for one pain point and one proof you can use in an internal brief.",
+    doCoaching:
+      "Open the tool and make the Claude Code Internal Value Matrix.",
+    checkCoaching:
+      "Check that the matrix names one audience, one claim, and one non-fit.",
+    reflectCoaching:
+      "Write the stakeholder note you would send from this matrix.",
   },
   "github-copilot:research-insight": {
     laneKey: "github-copilot:research-insight",
@@ -170,6 +209,14 @@ const LAUNCH_MISSION_CONTENT: Partial<Record<LaunchMissionLaneKey, LaunchMission
     nextMissionBridge: null,
     cardSupportLine:
       "Make a real adopt / test / skip call for one workflow.",
+    watchCoaching:
+      "Watch for one code-adjacent workflow and a reason to adopt, test, or skip.",
+    doCoaching:
+      "Open the tool and write the GitHub Copilot Workflow Evaluation Brief.",
+    checkCoaching:
+      "Check that the brief makes a clear adopt, test, or skip call.",
+    reflectCoaching:
+      "Write the next experiment, or the reason you will skip.",
   },
 };
 

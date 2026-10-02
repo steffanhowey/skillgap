@@ -79,7 +79,7 @@ function LoginForm() {
     <>
       <h1 className="text-2xl font-semibold text-[var(--sg-shell-900)]">Log in</h1>
       <p className="mt-2 text-[var(--sg-shell-600)]">
-        We&apos;ll send you a magic link.
+        We&apos;ll email you a magic link. No password.
       </p>
 
       <div className="mt-8 rounded-lg border border-[var(--sg-shell-border)] bg-[var(--sg-shell-100)] p-6">

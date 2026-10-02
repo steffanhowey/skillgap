@@ -1,7 +1,9 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { Clock, BookOpen, Loader2, Users } from "lucide-react";
+import { Clock, BookOpen, Loader2 } from "lucide-react";
+import { Button } from "@/components/ui/Button";
+import { Card } from "@/components/ui/Card";
 import { fetchOnboardingPicks } from "@/lib/onboarding/picks";
 import type {
   OnboardingPick,
@@ -13,6 +15,7 @@ interface PathRecommendationStepProps {
   primaryFunction: ProfessionalFunction;
   fluencyLevel: FluencyLevel;
   secondaryFunctions: ProfessionalFunction[];
+  saving?: boolean;
   onStartPath: (pick: OnboardingPick) => void;
   onBrowse: () => void;
 }
@@ -21,14 +24,13 @@ export default function PathRecommendationStep({
   primaryFunction,
   fluencyLevel,
   secondaryFunctions,
+  saving = false,
   onStartPath,
   onBrowse,
 }: PathRecommendationStepProps) {
   const [hero, setHero] = useState<OnboardingPick | null>(null);
   const [also, setAlso] = useState<OnboardingPick[]>([]);
   const [loading, setLoading] = useState(true);
-  // Stable synthetic social proof count (doesn't flicker on re-render)
-  const [socialCount] = useState(() => Math.floor(Math.random() * 23 + 8));
 
   useEffect(() => {
     let cancelled = false;
@@ -67,7 +69,7 @@ export default function PathRecommendationStep({
           className="animate-spin text-[var(--sg-shell-500)]"
         />
         <p className="text-sm text-[var(--sg-shell-600)]">
-          Personalizing your first path...
+          Loading your first mission...
         </p>
       </div>
     );
@@ -78,18 +80,22 @@ export default function PathRecommendationStep({
     return (
       <>
         <h1 className="text-2xl font-semibold text-[var(--sg-shell-900)]">
-          You&apos;re ready to explore
+          Open the mission board
         </h1>
         <p className="mt-2 text-[var(--sg-shell-600)]">
-          We&apos;re still curating paths for your profile. Browse what&apos;s
-          available and dive in.
+          We couldn&apos;t load a first mission just now. Everything live is on
+          the board.
         </p>
-        <button
+        <Button
+          variant="primary"
+          fullWidth
+          className="mt-8"
           onClick={onBrowse}
-          className="mt-8 inline-flex h-12 w-full items-center justify-center rounded-full bg-[var(--sg-forest-500)] font-medium text-white transition-opacity hover:opacity-85 active:opacity-75"
+          loading={saving}
+          disabled={saving}
         >
-          Browse paths
-        </button>
+          See all missions
+        </Button>
       </>
     );
   }
@@ -97,14 +103,13 @@ export default function PathRecommendationStep({
   return (
     <>
       <h1 className="text-2xl font-semibold text-[var(--sg-shell-900)]">
-        Here&apos;s where you start
+        Your first mission
       </h1>
       <p className="mt-2 text-[var(--sg-shell-600)]">
-        Based on your role and experience, we think this is the best first step.
+        A real brief. A real tool. Work you can use when you finish.
       </p>
 
-      {/* Hero path card */}
-      <div className="mt-8 rounded-xl border border-[var(--sg-shell-border)] bg-[var(--sg-shell-100)] p-6">
+      <Card className="mt-8 p-6">
         <h2 className="text-lg font-semibold text-[var(--sg-shell-900)]">
           {hero.display_title}
         </h2>
@@ -119,11 +124,9 @@ export default function PathRecommendationStep({
           </span>
           <span className="inline-flex items-center gap-1">
             <BookOpen size={13} strokeWidth={1.8} />
-            {hero.module_count} modules
-          </span>
-          <span className="inline-flex items-center gap-1">
-            <Users size={13} strokeWidth={1.8} />
-            {socialCount} learning now
+            {hero.module_count === 1
+              ? "1 step"
+              : `${hero.module_count} steps`}
           </span>
         </div>
 
@@ -140,19 +143,23 @@ export default function PathRecommendationStep({
           </div>
         )}
 
-        <button
+        <Button
+          variant="primary"
+          fullWidth
+          className="mt-5"
           onClick={() => onStartPath(hero)}
-          className="mt-5 inline-flex h-12 w-full items-center justify-center rounded-full bg-[var(--sg-forest-500)] font-medium text-white transition-opacity hover:opacity-85 active:opacity-75"
+          loading={saving}
+          disabled={saving}
         >
-          Start learning
-        </button>
-      </div>
+          Start this mission
+        </Button>
+      </Card>
 
       {/* Also for you */}
       {also.length > 0 && (
         <div className="mt-5">
           <p className="mb-3 text-xs font-medium uppercase tracking-wide text-[var(--sg-shell-500)]">
-            Also for you
+            Or start here
           </p>
           <div className="flex flex-col gap-2">
             {also.map((pick) => (
@@ -174,12 +181,11 @@ export default function PathRecommendationStep({
       )}
 
       {/* Browse more */}
-      <button
-        onClick={onBrowse}
-        className="mx-auto mt-5 block text-sm text-[var(--sg-shell-500)] underline decoration-[var(--sg-shell-border)] underline-offset-2 transition-colors hover:text-[var(--sg-shell-600)]"
-      >
-        Browse more paths
-      </button>
+      <div className="mt-5 flex justify-center">
+        <Button variant="link" onClick={onBrowse} disabled={saving}>
+          See all missions
+        </Button>
+      </div>
     </>
   );
 }

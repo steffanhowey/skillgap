@@ -32,6 +32,8 @@ export interface FluencyOption {
 /** An editorial pick from fp_onboarding_picks — drives Step 3 recommendations. */
 export interface OnboardingPick {
   id: string;
+  /** Real learning-path UUID. Required before routing to /missions/[id]. */
+  path_id: string | null;
   function: string;
   fluency_level: string;
   path_topic: string;
@@ -42,6 +44,9 @@ export interface OnboardingPick {
   tool_names: string[];
   sort_order: number;
 }
+
+/** Launch function that currently has a published catalog. */
+export const LIVE_ONBOARDING_FUNCTION: ProfessionalFunction = "marketing";
 
 /** Canonical function options for the selection grid. */
 export const FUNCTION_OPTIONS: FunctionOption[] = [

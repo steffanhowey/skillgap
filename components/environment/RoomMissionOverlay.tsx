@@ -25,6 +25,7 @@ interface RoomMissionOverlayProps {
   progress: LearningProgress | null;
   achievement: AchievementSummary | null;
   skillReceipt: SkillReceipt | null;
+  skillReceiptReady?: boolean;
   recommendedPaths: LearningPath[];
   recommendationsLoading?: boolean;
   currentItemIndex: number;
@@ -58,6 +59,7 @@ export function RoomMissionOverlay({
   progress,
   achievement,
   skillReceipt,
+  skillReceiptReady = false,
   recommendedPaths,
   recommendationsLoading = false,
   currentItemIndex,
@@ -297,6 +299,7 @@ export function RoomMissionOverlay({
                 progress={progress}
                 achievement={achievement}
                 skillReceipt={skillReceipt}
+                skillReceiptReady={skillReceiptReady}
                 artifactExpectation={artifactExpectation}
                 recommendedPaths={recommendedPaths}
                 recommendationsLoading={recommendationsLoading}
@@ -350,6 +353,7 @@ export function RoomMissionOverlay({
               isCompleted={isItemCompleted}
               onComplete={handleComplete}
               onCompleteWithState={handleCompleteWithState}
+              onLeave={onClose}
               variant="roomOverlay"
             />,
             {

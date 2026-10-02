@@ -61,6 +61,17 @@ export interface QuickCheck {
   hint: string;
 }
 
+/** In-product artifact workshop attached to a taught unit step. */
+export type TaughtWorkshopKind =
+  | "content_brief_prompt_upgrade"
+  | "content_brief_prompt_upgrade_review"
+  | "next_brief_use";
+
+export interface TaughtWorkshop {
+  kind: TaughtWorkshopKind;
+  version: string;
+}
+
 /** Reflection prompt at module boundaries */
 export interface ReflectionPrompt {
   /** The reflection question, personalized to user context */
@@ -179,6 +190,9 @@ export interface PathItem {
   // ── Reflect task fields (only present when task_type === 'reflect') ──
   /** Reflection prompt (reflect tasks only) */
   reflection: ReflectionPrompt | null;
+
+  /** In-product workshop. When set, the do/check step is not a copy-prompt. */
+  workshop?: TaughtWorkshop | null;
 
   // ── @deprecated fields for backward compat with old paths ──
   /** @deprecated — Use task_type instead */

@@ -8,6 +8,13 @@ import type {
   ItemState,
   SkillReceipt,
 } from "./types";
+import { canCompletePath } from "@/lib/learn/pathCompletion";
+import {
+  trackMissionCompleted,
+  trackReceiptIssued,
+} from "@/lib/onboarding/tracking";
+import { invalidateActiveMissionsCache } from "@/lib/useActiveMissions";
+import { invalidateEvidenceArchiveCache } from "@/lib/useProfilePageData";
 
 // ─── Types ──────────────────────────────────────────────────
 
@@ -23,6 +30,7 @@ interface UseLearnProgressReturn {
   isCompleted: boolean;
   percentComplete: number;
   skillReceipt: SkillReceipt | null;
+  skillReceiptReady: boolean;
 }
 
 function resetProgressState(setters: {
@@ -32,6 +40,7 @@ function resetProgressState(setters: {
   setCurrentItemIndex: Dispatch<SetStateAction<number>>;
   setError: Dispatch<SetStateAction<string | null>>;
   setSkillReceipt: Dispatch<SetStateAction<SkillReceipt | null>>;
+  setSkillReceiptReady: Dispatch<SetStateAction<boolean>>;
 }): void {
   setters.setPath(null);
   setters.setProgress(null);
@@ -39,6 +48,7 @@ function resetProgressState(setters: {
   setters.setCurrentItemIndex(0);
   setters.setError(null);
   setters.setSkillReceipt(null);
+  setters.setSkillReceiptReady(false);
 }
 
 // ─── Hook ───────────────────────────────────────────────────
@@ -58,6 +68,7 @@ export function useLearnProgress(
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [skillReceipt, setSkillReceipt] = useState<SkillReceipt | null>(null);
+  const [skillReceiptReady, setSkillReceiptReady] = useState(false);
   const timeAccum = useRef(0);
   const timeInterval = useRef<ReturnType<typeof setInterval>>(undefined);
   const previousPathIdRef = useRef<string | null>(null);
@@ -76,6 +87,7 @@ export function useLearnProgress(
         setCurrentItemIndex,
         setError,
         setSkillReceipt,
+        setSkillReceiptReady,
       });
       setIsLoading(false);
       return () => {
@@ -104,6 +116,7 @@ export function useLearnProgress(
           setCurrentItemIndex,
           setError,
           setSkillReceipt,
+          setSkillReceiptReady,
         });
       }
 
@@ -126,12 +139,18 @@ export function useLearnProgress(
             fetch(`/api/learn/skill-receipt/${pathId}`)
               .then((r) => r.json())
               .then((d) => {
-                if (isActive && d.skill_receipt) {
-                  setSkillReceipt(d.skill_receipt);
-                }
+                if (!isActive) return;
+                if (d.skill_receipt) setSkillReceipt(d.skill_receipt);
+                setSkillReceiptReady(true);
               })
-              .catch(() => {}); // Silent fail — receipt is enhancement, not critical
+              .catch(() => {
+                if (isActive) setSkillReceiptReady(true);
+              });
+          } else {
+            setSkillReceiptReady(true);
           }
+        } else {
+          setSkillReceiptReady(true);
         }
       } catch (err) {
         if (isActive) {
@@ -207,6 +226,8 @@ export function useLearnProgress(
     async (contentId: string, stateData?: Partial<ItemState>) => {
       if (!pathId) return;
 
+      const isSkipped = stateData?.skipped === true;
+
       // Optimistic update so transition card works even without auth
       setProgress((prev) => {
         const itemStates = { ...(prev?.item_states ?? {}) };
@@ -214,30 +235,38 @@ export function useLearnProgress(
         itemStates[contentId] = {
           ...existing,
           ...stateData,
-          completed: true,
-          completed_at: new Date().toISOString(),
+          completed: !isSkipped,
+          skipped: isSkipped,
+          completed_at: isSkipped
+            ? existing.completed_at
+            : new Date().toISOString(),
         };
         const itemsCompleted = Object.values(itemStates).filter(
-          (s) => s.completed
+          (s) => s.completed && !s.skipped
         ).length;
         const itemsTotal = path?.items.length ?? prev?.items_total ?? 0;
+        const pathCompleted = path
+          ? canCompletePath(path.items, itemStates)
+          : false;
+        if (pathCompleted) {
+          invalidateActiveMissionsCache();
+          invalidateEvidenceArchiveCache();
+        }
         return {
           id: prev?.id ?? "local",
           user_id: prev?.user_id ?? "anonymous",
           path_id: pathId,
           started_at: prev?.started_at ?? new Date().toISOString(),
           last_activity_at: new Date().toISOString(),
-          completed_at:
-            itemsCompleted >= itemsTotal
-              ? new Date().toISOString()
-              : prev?.completed_at ?? null,
+          completed_at: pathCompleted
+            ? new Date().toISOString()
+            : prev?.completed_at ?? null,
           current_item_index: prev?.current_item_index ?? currentItemIndex,
           items_completed: itemsCompleted,
           items_total: itemsTotal,
           time_invested_seconds: prev?.time_invested_seconds ?? 0,
           item_states: itemStates,
-          status:
-            itemsCompleted >= itemsTotal ? "completed" : "in_progress",
+          status: pathCompleted ? "completed" : "in_progress",
         };
       });
 
@@ -252,6 +281,15 @@ export function useLearnProgress(
         if (data.progress) setProgress(data.progress);
         if (data.achievement) setAchievement(data.achievement);
         if (data.skill_receipt) setSkillReceipt(data.skill_receipt);
+        if (data.progress?.status === "completed") {
+          invalidateActiveMissionsCache();
+          invalidateEvidenceArchiveCache();
+          setSkillReceiptReady(true);
+          if (pathId) trackMissionCompleted(pathId);
+        }
+        if (data.skill_receipt && pathId) {
+          trackReceiptIssued(pathId);
+        }
       } catch {
         // Optimistic update already applied
       }
@@ -295,5 +333,6 @@ export function useLearnProgress(
     percentComplete:
       itemsTotal > 0 ? Math.round((itemsCompleted / itemsTotal) * 100) : 0,
     skillReceipt,
+    skillReceiptReady,
   };
 }

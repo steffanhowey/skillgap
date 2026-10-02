@@ -52,9 +52,14 @@ const REASON_CONFIG: Record<
     label: "Explore",
     color: "var(--sg-shell-500)",
   },
+  editorial_sequence: {
+    icon: Flame,
+    label: "Next in sequence",
+    color: "var(--sg-shell-500)",
+  },
   market_demand: {
     icon: Flame,
-    label: "In Demand",
+    label: "Market signal",
     color: "var(--sg-gold-600)",
   },
 };

@@ -10,9 +10,11 @@ import { Button } from "@/components/ui/Button";
 import {
   FUNCTION_OPTIONS,
   FLUENCY_OPTIONS,
+  LIVE_ONBOARDING_FUNCTION,
   type ProfessionalFunction,
   type FluencyLevel,
 } from "@/lib/onboarding/types";
+import { useAuth } from "@/components/providers/AuthProvider";
 
 const inputClass =
   "h-11 w-full rounded-lg border border-[var(--sg-shell-border)] bg-[var(--sg-shell-50)] px-4 text-sm text-[var(--sg-shell-900)] outline-none placeholder:text-[var(--sg-shell-400)] focus:border-[var(--sg-forest-400)]";
@@ -34,6 +36,7 @@ function UsernameStatusIcon({ status }: { status: UsernameStatus }) {
 export function ProfileSettings() {
   const { userId, email } = useCurrentUser();
   const { profile, refetch } = useProfile();
+  const { signOut } = useAuth();
   const supabase = createClient();
 
   const [displayName, setDisplayName] = useState<string | null>(null);
@@ -263,6 +266,20 @@ export function ProfileSettings() {
         currentFluency={profile.fluency_level as FluencyLevel | null}
         onSaved={refetch}
       />
+
+      <div className="rounded-lg border border-[var(--sg-shell-border)] bg-[var(--sg-shell-50)] p-6">
+        <h2 className="text-lg font-semibold text-[var(--sg-shell-900)]">
+          Session
+        </h2>
+        <p className="mt-1 text-sm text-[var(--sg-shell-600)]">
+          Sign out of this browser.
+        </p>
+        <div className="mt-4">
+          <Button variant="outline" size="sm" onClick={() => void signOut()}>
+            Sign out
+          </Button>
+        </div>
+      </div>
     </div>
   );
 }
@@ -310,7 +327,7 @@ function FunctionFluencySection({
           Personalization
         </h2>
         <p className="mt-1 text-sm text-[var(--sg-shell-600)]">
-          These shape your learning paths and recommendations.
+          Marketing is live. These help us pick the right first mission.
         </p>
       </div>
 
@@ -327,8 +344,14 @@ function FunctionFluencySection({
           >
             <option value="">Select...</option>
             {FUNCTION_OPTIONS.map((o) => (
-              <option key={o.value} value={o.value}>
-                {o.label}
+              <option
+                key={o.value}
+                value={o.value}
+                disabled={o.value !== LIVE_ONBOARDING_FUNCTION}
+              >
+                {o.value === LIVE_ONBOARDING_FUNCTION
+                  ? o.label
+                  : `${o.label} (Coming soon)`}
               </option>
             ))}
           </select>

@@ -10,6 +10,7 @@
  */
 
 import { createClient as createAdminClient } from "@/lib/supabase/admin";
+import { seedLaunchSkillTagsForPath } from "@/lib/launchSkillTags";
 import { getSkillsWithDomains } from "@/lib/skills/taxonomy";
 import { assessFluencyLevel, recalculateAvgScore } from "@/lib/skills/assessment";
 import type { SkillReceipt, SkillReceiptEntry, UserSkill } from "@/lib/types/skills";
@@ -49,12 +50,32 @@ export async function calculateSkillReceipt(
     const admin = createAdminClient();
 
     // ── 1. Load skill tags for this path ──────────────────────
-    const { data: tagRows, error: tagErr } = await admin
+    const { data: initialTagRows, error: tagErr } = await admin
       .from("fp_skill_tags")
       .select("skill_id, relevance")
       .eq("path_id", input.pathId);
 
-    if (tagErr || !tagRows?.length) {
+    if (tagErr) {
+      console.log("[skill-receipt] Failed to load skill tags, skipping receipt");
+      return null;
+    }
+
+    let tagRows = initialTagRows ?? [];
+
+    if (tagRows.length === 0) {
+      const seeded = await seedLaunchSkillTagsForPath(input.pathId);
+      if (seeded > 0) {
+        const retried = await admin
+          .from("fp_skill_tags")
+          .select("skill_id, relevance")
+          .eq("path_id", input.pathId);
+        if (retried.data?.length) {
+          tagRows = retried.data;
+        }
+      }
+    }
+
+    if (tagRows.length === 0) {
       console.log("[skill-receipt] No skill tags for path, skipping receipt");
       return null;
     }
@@ -116,6 +137,11 @@ export async function calculateSkillReceipt(
         }
         // null score or unrecognized quality → not counted
       }
+    }
+
+    if (missionScores.length === 0) {
+      console.log("[skill-receipt] No evaluated Do work, skipping receipt");
+      return null;
     }
 
     // ── 4. Upsert fp_user_skills ──────────────────────────────

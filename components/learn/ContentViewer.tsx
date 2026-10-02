@@ -4,14 +4,14 @@ import React from "react";
 import { CheckCircle } from "lucide-react";
 import { LearnVideoPlayer } from "./LearnVideoPlayer";
 import { ArticleViewer } from "./ArticleViewer";
+import { ArtifactReviewViewer } from "./ArtifactReviewViewer";
+import { ArtifactWorkshopViewer } from "./ArtifactWorkshopViewer";
+import { NextUseReflection } from "./NextUseReflection";
 import { MissionViewer } from "./MissionViewer";
 import { QuickCheckViewer } from "./QuickCheckViewer";
 import { ReflectionViewer } from "./ReflectionViewer";
 import { Button } from "@/components/ui/Button";
-import {
-  RoomStageFooter,
-  RoomStageScaffold,
-} from "./RoomStageScaffold";
+import { RoomStageFooter } from "./RoomStageScaffold";
 import type { PathItem, ItemState } from "@/lib/types";
 
 interface ContentViewerProps {
@@ -19,9 +19,13 @@ interface ContentViewerProps {
   isCompleted: boolean;
   onComplete: () => void;
   onCompleteWithState: (stateData: Partial<ItemState>) => void;
+  onLeave?: () => void;
   variant?: "default" | "roomOverlay" | "missionPage";
   onPlayStateChange?: (playing: boolean) => void;
   togglePlayRef?: React.MutableRefObject<(() => void) | null>;
+  workshopSubmission?: string;
+  itemSubmission?: string;
+  onReviseWorkshop?: () => void;
 }
 
 /**
@@ -40,12 +44,50 @@ export function ContentViewer({
   isCompleted,
   onComplete,
   onCompleteWithState,
+  onLeave,
   variant = "default",
   onPlayStateChange,
   togglePlayRef,
+  workshopSubmission,
+  itemSubmission,
+  onReviseWorkshop,
 }: ContentViewerProps) {
   const taskType = item.task_type ?? "watch";
   const isImmersiveStage = variant === "roomOverlay" || variant === "missionPage";
+
+  if (item.workshop?.kind === "content_brief_prompt_upgrade") {
+    return (
+      <ArtifactWorkshopViewer
+        isCompleted={isCompleted}
+        initialSubmission={workshopSubmission}
+        onComplete={onCompleteWithState}
+      />
+    );
+  }
+
+  if (item.workshop?.kind === "content_brief_prompt_upgrade_review") {
+    return (
+      <ArtifactReviewViewer
+        isCompleted={isCompleted}
+        submissionText={workshopSubmission}
+        onComplete={onCompleteWithState}
+        onRevise={() => {
+          onReviseWorkshop?.();
+        }}
+      />
+    );
+  }
+
+  if (item.workshop?.kind === "next_brief_use") {
+    return (
+      <NextUseReflection
+        isCompleted={isCompleted}
+        prompt={item.reflection?.prompt ?? "Which real brief will you use this method on next?"}
+        initialValue={itemSubmission}
+        onComplete={onCompleteWithState}
+      />
+    );
+  }
 
   // ── Do tasks → MissionViewer ──
   if (taskType === "do" && item.mission) {
@@ -54,6 +96,7 @@ export function ContentViewer({
         item={item}
         isCompleted={isCompleted}
         onComplete={onCompleteWithState}
+        onLeave={onLeave}
         variant={variant}
       />
     );
@@ -95,26 +138,13 @@ export function ContentViewer({
 
     if (variant === "missionPage") {
       return (
-        <RoomStageScaffold
-          variant="missionPage"
-          eyebrow="Watch"
-          title={item.title}
-          description={item.connective_text}
-          footerMeta={footerMeta}
-          primaryAction={
-            <Button
-              variant="cta"
-              size="sm"
-              leftIcon={<CheckCircle size={14} />}
-              onClick={onComplete}
-              disabled={isCompleted}
-            >
-              {isCompleted ? "Completed" : "Mark Complete"}
-            </Button>
-          }
-          contentClassName="max-w-[960px] space-y-4"
-        >
-          <div className="overflow-hidden rounded-[var(--sg-radius-lg)] border border-white/[0.08] bg-black">
+        <div className="space-y-4">
+          {item.connective_text ? (
+            <p className="text-sm leading-6 text-[var(--sg-shell-600)]">
+              {item.connective_text}
+            </p>
+          ) : null}
+          <div className="overflow-hidden rounded-[var(--sg-radius-lg)] border border-[var(--sg-shell-border)] bg-[var(--sg-white)]">
             <LearnVideoPlayer
               sourceUrl={item.source_url}
               title={item.title}
@@ -128,7 +158,20 @@ export function ContentViewer({
               clipEndSeconds={item.clip_end_seconds}
             />
           </div>
-        </RoomStageScaffold>
+          <div className="flex items-center justify-between gap-3">
+            <p className="text-xs leading-5 text-[var(--sg-shell-500)]">
+              {footerMeta}
+            </p>
+            <Button
+              variant="cta"
+              size="sm"
+              onClick={onComplete}
+              disabled={isCompleted}
+            >
+              {isCompleted ? "Completed" : "I got the idea"}
+            </Button>
+          </div>
+        </div>
       );
     }
 

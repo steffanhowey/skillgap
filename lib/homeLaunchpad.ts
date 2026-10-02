@@ -4,6 +4,7 @@ import {
   isPartyLaunchVisible,
 } from "@/lib/launchRooms";
 import {
+  getMissionPlayerTitle,
   getMissionProgressSummary,
   getMissionRepSummary,
 } from "@/lib/missionPresentation";
@@ -23,12 +24,16 @@ export interface HomePrimaryAction {
   mission: LearningPath | null;
   progress: LearningProgress | null;
   recommendation: MissionRecommendationViewModel | null;
+  isFirstMission: boolean;
 }
 
 interface BuildHomePrimaryActionOptions {
   activeMission: HomeMissionProgressEntry | null;
   recommendations: MissionRecommendationViewModel[];
   fallbackRecommendations: MissionRecommendationViewModel[];
+  recommendedFirstPathId?: string | null;
+  completedPathIds?: Set<string>;
+  knownPaths?: LearningPath[];
 }
 
 interface BuildHomeBestNextRepOptions {
@@ -131,6 +136,9 @@ export function buildHomePrimaryAction({
   activeMission,
   recommendations,
   fallbackRecommendations,
+  recommendedFirstPathId = null,
+  completedPathIds = new Set(),
+  knownPaths = [],
 }: BuildHomePrimaryActionOptions): HomePrimaryAction {
   if (activeMission) {
     return {
@@ -138,6 +146,32 @@ export function buildHomePrimaryAction({
       mission: activeMission.path,
       progress: activeMission.progress,
       recommendation: null,
+      isFirstMission: false,
+    };
+  }
+
+  const recommendedPath =
+    recommendedFirstPathId && !completedPathIds.has(recommendedFirstPathId)
+      ? findKnownPath(
+          recommendedFirstPathId,
+          knownPaths,
+          recommendations,
+          fallbackRecommendations,
+        )
+      : null;
+
+  if (recommendedPath) {
+    const matchingRecommendation =
+      getOrderedRecommendations(recommendations, fallbackRecommendations).find(
+        (recommendation) => recommendation.path.id === recommendedPath.id,
+      ) ?? null;
+
+    return {
+      kind: "next",
+      mission: recommendedPath,
+      progress: null,
+      recommendation: matchingRecommendation,
+      isFirstMission: true,
     };
   }
 
@@ -151,6 +185,7 @@ export function buildHomePrimaryAction({
       mission: nextRecommendation.path,
       progress: null,
       recommendation: nextRecommendation,
+      isFirstMission: false,
     };
   }
 
@@ -159,7 +194,25 @@ export function buildHomePrimaryAction({
     mission: null,
     progress: null,
     recommendation: null,
+    isFirstMission: false,
   };
+}
+
+function findKnownPath(
+  pathId: string,
+  knownPaths: LearningPath[],
+  recommendations: MissionRecommendationViewModel[],
+  fallbackRecommendations: MissionRecommendationViewModel[],
+): LearningPath | null {
+  const fromKnown = knownPaths.find((path) => path.id === pathId);
+  if (fromKnown) return fromKnown;
+
+  const fromRecommendations = [
+    ...recommendations,
+    ...fallbackRecommendations,
+  ].find((recommendation) => recommendation.path.id === pathId);
+
+  return fromRecommendations?.path ?? null;
 }
 
 /**
@@ -312,7 +365,7 @@ export function buildHomeQueueSnapshot({
     activeItem: activeMission
       ? {
           pathId: activeMission.path.id,
-          title: activeMission.path.title,
+          title: getMissionPlayerTitle(activeMission.path),
           supportLine: getMissionProgressSummary(activeMission.progress),
         }
       : null,
@@ -323,10 +376,10 @@ export function buildHomeQueueSnapshot({
 
       return {
         pathId: goal.linked_path_id,
-        title: path?.title ?? goal.title,
+        title: path ? getMissionPlayerTitle(path) : goal.title,
         supportLine: path
           ? getMissionRepSummary(path)
-          : "Saved for your next rep",
+          : "Saved for your next mission",
       };
     }),
     savedCount: orderedSavedGoals.length,

@@ -70,8 +70,17 @@ describe("launchMissionContent", () => {
     expect(getLaunchMissionLaneKey(promptResearch)).toBe(
       "prompt-engineering:research-insight",
     );
+    expect(getLaunchMissionContent(promptResearch)?.playerTitle).toBe(
+      "Write a better brief for ChatGPT",
+    );
     expect(getLaunchMissionContent(promptResearch)?.artifactLabel).toBe(
-      "Content-Brief Prompt Upgrade Brief",
+      "Next-brief method",
+    );
+    expect(getLaunchMissionContent(promptResearch)?.watchCoaching).toBe(
+      "Watch why a vague ask comes back generic.",
+    );
+    expect(getLaunchMissionContent(promptResearch)?.doCoaching).toBe(
+      "See a weak brief, name your job, pick a better ask.",
     );
     expect(getLaunchMissionLaneKey(unsupportedCopilotMessaging)).toBeNull();
     expect(getLaunchMissionContent(unsupportedCopilotMessaging)).toBeNull();

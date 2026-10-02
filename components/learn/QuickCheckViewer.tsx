@@ -85,14 +85,22 @@ export function QuickCheckViewer({
           hint: check.hint,
         }),
       });
-      const data = await res.json();
-      setFeedback(data);
-    } catch {
+      const data = (await res.json()) as {
+        feedback?: string;
+        quality?: string;
+        is_correct?: boolean;
+        error?: string;
+      };
+      if (!res.ok || data.quality === "unevaluated") {
+        return;
+      }
       setFeedback({
-        feedback: "Could not evaluate right now. Try again later.",
-        quality: "good",
-        is_correct: false,
+        feedback: data.feedback ?? "",
+        quality: data.quality as "strong" | "good" | "needs_work",
+        is_correct: data.is_correct ?? false,
       });
+    } catch {
+      return;
     } finally {
       setLoading(false);
     }

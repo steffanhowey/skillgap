@@ -1,7 +1,7 @@
 "use client";
 
 import type { ReactNode } from "react";
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { ArrowLeft, ArrowRight, CheckCircle2 } from "lucide-react";
@@ -11,60 +11,28 @@ import {
   MISSIONS_ROUTE,
   PROGRESS_ROUTE,
   ROOMS_ROUTE,
+  getMissionSoloRoute,
   getProgressEvidenceRoute,
 } from "@/lib/appRoutes";
-import {
-  getLaunchRoomMissionFitHint,
-  getPartyLaunchDisplayName,
-  getPartyLaunchPickerDescription,
-} from "@/lib/launchRooms";
-import { getMissionLaunchDomain } from "@/lib/launchTaxonomy";
 import { prepareMissionRoomEntry } from "@/lib/missionRoomEntry";
 import {
   formatMissionDuration,
   getMissionArtifactLabel,
-  getMissionBriefing,
-  getMissionCompletionStandard,
   getMissionCurrentItem,
   getMissionExpectedOutput,
   getMissionFraming,
-  getMissionNextBridge,
+  getMissionPlayerTitle,
   getMissionProgressSummary,
+  getMissionRoomCtaMode,
+  getMissionStepCoaching,
   getMissionSuccessPreview,
-  getMissionUseItNext,
-  getMissionWhyNow,
-  getMissionScopeGuardrails,
 } from "@/lib/missionPresentation";
 import { useMissionLandingPageData } from "@/lib/useMissionLandingPageData";
-import type { CurriculumModule, LearningPath, LearningProgress, PathItem } from "@/lib/types";
+import { trackFirstMissionOpened } from "@/lib/onboarding/tracking";
+import { useProfile } from "@/lib/useProfile";
+import type { LearningPath, LearningProgress } from "@/lib/types";
 
 type MissionLandingState = "ready" | "active" | "completed";
-
-interface MissionUseItem {
-  label: string;
-  value: string;
-}
-
-interface MissionMapRow {
-  key: string;
-  title: string;
-  meta: string | null;
-  currentStepTitle: string | null;
-  isCurrent: boolean;
-  isCompleted: boolean;
-}
-
-function getMissionItemKey(item: PathItem, index: number): string {
-  return item.item_id ?? item.content_id ?? `idx-${index}`;
-}
-
-function isMissionItemCompleted(
-  progress: LearningProgress | null,
-  item: PathItem,
-  index: number,
-): boolean {
-  return progress?.item_states?.[getMissionItemKey(item, index)]?.completed ?? false;
-}
 
 function getMissionLandingState(
   progress: LearningProgress | null,
@@ -98,100 +66,6 @@ function formatMissionMetaLine(
   return `${effort} · ${stepLabel}`;
 }
 
-function buildMissionUseItems(
-  path: LearningPath,
-  progress: LearningProgress | null,
-): MissionUseItem[] {
-  const mission = getMissionBriefing(path, progress);
-  const items: MissionUseItem[] = [];
-  const toolName = mission?.tool?.name ?? path.primary_tools?.[0] ?? null;
-
-  if (toolName) {
-    items.push({ label: "Tool", value: toolName });
-  }
-
-  if (mission?.tool_prompt?.trim()) {
-    items.push({
-      label: "Prompt",
-      value: toolName ? `Prepared prompt for ${toolName}` : "Prepared prompt included",
-    });
-  }
-
-  if (mission?.starter_code?.trim()) {
-    items.push({
-      label: "Starter template",
-      value: "Included and ready in room",
-    });
-  }
-
-  const sourceMaterial = path.items
-    .filter((item) => item.task_type === "watch" && item.title.trim())
-    .slice(0, 2)
-    .map((item) => item.title.trim());
-
-  if (sourceMaterial.length > 0) {
-    items.push({
-      label: "Source material",
-      value: sourceMaterial.join(" · "),
-    });
-  }
-
-  return items;
-}
-
-function buildMissionMapRows(
-  path: LearningPath,
-  progress: LearningProgress | null,
-): MissionMapRow[] {
-  const itemsByModule = new Map<number, Array<PathItem & { globalIndex: number }>>();
-
-  path.items.forEach((item, index) => {
-    const moduleIndex = item.module_index ?? 0;
-    const existing = itemsByModule.get(moduleIndex) ?? [];
-    existing.push({ ...item, globalIndex: index });
-    itemsByModule.set(moduleIndex, existing);
-  });
-
-  const fallbackModules: CurriculumModule[] = [...itemsByModule.entries()]
-    .sort(([left], [right]) => left - right)
-    .map(([moduleIndex, items], index) => ({
-      index: moduleIndex,
-      title: itemsByModule.size === 1 ? "Mission" : `Part ${index + 1}`,
-      description: "",
-      task_count: items.length,
-      duration_seconds: items.reduce((sum, item) => sum + item.duration_seconds, 0),
-    }));
-
-  const modules = path.modules?.length ? path.modules : fallbackModules;
-  const currentItem = getMissionCurrentItem(path, progress);
-  const currentModuleIndex = currentItem?.module_index ?? modules[0]?.index ?? 0;
-  const isCompleted = getMissionLandingState(progress) === "completed";
-
-  return modules
-    .map((module) => {
-      const items = itemsByModule.get(module.index) ?? [];
-      const stepCount = items.length || module.task_count || 0;
-      const stepLabel = stepCount > 0 ? `${stepCount} ${stepCount === 1 ? "step" : "steps"}` : null;
-      const durationLabel =
-        module.duration_seconds > 0 ? formatMissionDuration(module.duration_seconds) : null;
-      const meta = [stepLabel, durationLabel].filter(Boolean).join(" · ") || null;
-      const currentStepTitle =
-        !isCompleted && module.index === currentModuleIndex ? currentItem?.title ?? null : null;
-
-      return {
-        key: `module-${module.index}`,
-        title: module.title,
-        meta,
-        currentStepTitle,
-        isCurrent: !isCompleted && module.index === currentModuleIndex,
-        isCompleted:
-          items.length > 0 &&
-          items.every((item) => isMissionItemCompleted(progress, item, item.globalIndex)),
-      };
-    })
-    .filter((row) => row.title || row.meta || row.currentStepTitle);
-}
-
 function MissionSection({
   title,
   children,
@@ -206,60 +80,6 @@ function MissionSection({
         {children}
       </div>
     </section>
-  );
-}
-
-function MissionMapPreview({ rows }: { rows: MissionMapRow[] }) {
-  if (rows.length === 0) {
-    return (
-      <div
-        className="rounded-[var(--sg-radius-lg)] border border-[var(--sg-shell-border)] px-4 py-4 text-sm leading-6 text-[var(--sg-shell-500)]"
-        style={{
-          background: "color-mix(in srgb, var(--sg-white) 78%, var(--sg-shell-50) 22%)",
-        }}
-      >
-        Steps are still being prepared for this mission.
-      </div>
-    );
-  }
-
-  return (
-    <div
-      className="overflow-hidden rounded-[var(--sg-radius-lg)] border border-[var(--sg-shell-border)]"
-      style={{
-        background: "color-mix(in srgb, var(--sg-white) 76%, var(--sg-shell-50) 24%)",
-      }}
-    >
-      {rows.map((row, index) => (
-        <div
-          key={row.key}
-          className={`px-4 py-4 sm:px-5 ${index > 0 ? "border-t border-[var(--sg-shell-border)]" : ""}`}
-          style={{
-            background: row.isCurrent
-              ? "color-mix(in srgb, var(--sg-sage-100) 42%, var(--sg-white) 58%)"
-              : "transparent",
-          }}
-        >
-          <div className="flex items-start justify-between gap-3">
-            <div className="min-w-0 space-y-1">
-              <p className="text-sm font-medium text-[var(--sg-shell-900)]">{row.title}</p>
-              {row.meta ? (
-                <p className="text-xs leading-5 text-[var(--sg-shell-500)]">{row.meta}</p>
-              ) : null}
-              {row.currentStepTitle ? (
-                <p className="text-xs leading-5 text-[var(--sg-forest-500)]">
-                  Current step: {row.currentStepTitle}
-                </p>
-              ) : null}
-            </div>
-
-            {row.isCompleted ? (
-              <CheckCircle2 size={16} className="mt-0.5 shrink-0 text-[var(--sg-forest-500)]" />
-            ) : null}
-          </div>
-        </div>
-      ))}
-    </div>
   );
 }
 
@@ -324,27 +144,24 @@ function MissionEmptyState({
 
 function LaunchRail({
   state,
+  itemsCompleted,
   primaryLabel,
   onPrimaryAction,
-  onSecondaryAction,
-  recommendedRoomName,
-  recommendedRoomSupport,
-  fallbackRoomName,
-  isLoading,
+  onRoomAction,
+  isRoomLoading,
   isCompleted,
   workHref,
 }: {
   state: MissionLandingState;
+  itemsCompleted: number;
   primaryLabel: string;
   onPrimaryAction: () => void;
-  onSecondaryAction: (() => void) | null;
-  recommendedRoomName: string | null;
-  recommendedRoomSupport: string;
-  fallbackRoomName: string | null;
-  isLoading: boolean;
+  onRoomAction: () => void;
+  isRoomLoading: boolean;
   isCompleted: boolean;
   workHref: string | null;
 }) {
+  const roomCta = getMissionRoomCtaMode(state, itemsCompleted);
   const stateLabel =
     state === "completed"
       ? "Completed"
@@ -366,26 +183,19 @@ function LaunchRail({
           </p>
           <div className="space-y-1">
             <h2 className="text-lg font-semibold text-[var(--sg-shell-900)]">
-              Best room fit
+              {state === "completed"
+                ? "Review the work"
+                : state === "active"
+                  ? "Continue the work"
+                  : "Start the work"}
             </h2>
             <p className="text-sm leading-6 text-[var(--sg-shell-500)]">
-              {recommendedRoomSupport}
+              {state === "completed"
+                ? "Open what you made, or start the next mission."
+                : "One mission. One tool. Leave with work you can use."}
             </p>
           </div>
         </div>
-
-        {recommendedRoomName ? (
-          <div className="space-y-2">
-            <p className="text-base font-semibold text-[var(--sg-shell-900)]">
-              {recommendedRoomName}
-            </p>
-            {fallbackRoomName && fallbackRoomName !== recommendedRoomName ? (
-              <p className="text-sm leading-6 text-[var(--sg-shell-500)]">
-                Also works well in {fallbackRoomName}.
-              </p>
-            ) : null}
-          </div>
-        ) : null}
 
         <div className="space-y-3">
           <Button
@@ -394,20 +204,23 @@ function LaunchRail({
             fullWidth
             rightIcon={<ArrowRight size={14} />}
             onClick={onPrimaryAction}
-            loading={isLoading}
           >
             {primaryLabel}
           </Button>
 
-          {onSecondaryAction ? (
-            <Button
-              variant="outline"
-              size="sm"
-              fullWidth
-              onClick={onSecondaryAction}
-            >
-              Choose another room
-            </Button>
+          {roomCta === "footnote" ? (
+            <div className="flex justify-center">
+              <Button
+                variant="link"
+                size="sm"
+                onClick={onRoomAction}
+                disabled={isRoomLoading}
+              >
+                {isRoomLoading
+                  ? "Finding a room…"
+                  : "Prefer company? Do this in a room"}
+              </Button>
+            </div>
           ) : null}
         </div>
 
@@ -451,29 +264,25 @@ export function MissionDetailPage({ pathId }: { pathId: string }) {
     roomsLoading,
     roomsError,
     recommendedRoom,
-    fallbackRoom,
     missionDomainLabel,
   } = useMissionLandingPageData(pathId);
+  const { profile } = useProfile();
+  const trackedOpenRef = useRef(false);
+
+  useEffect(() => {
+    if (!path || trackedOpenRef.current) return;
+    if (profile?.recommended_first_path_id !== path.id) return;
+    trackedOpenRef.current = true;
+    trackFirstMissionOpened(path.id);
+  }, [path, profile?.recommended_first_path_id]);
 
   const landingState = useMemo(
     () => getMissionLandingState(progress),
     [progress],
   );
-  const launchDomain = useMemo(
-    () => (path ? getMissionLaunchDomain(path) : null),
-    [path],
-  );
   const framing = useMemo(
     () => (path ? getMissionFraming(path, progress) : null),
     [path, progress],
-  );
-  const whyItMatters = useMemo(
-    () => (path ? getMissionWhyNow(path, progress) : null),
-    [path, progress],
-  );
-  const scopeGuardrails = useMemo(
-    () => (path ? getMissionScopeGuardrails(path) : null),
-    [path],
   );
   const outputTitle =
     landingState === "completed" ? "What you made" : "What you'll make";
@@ -485,60 +294,30 @@ export function MissionDetailPage({ pathId }: { pathId: string }) {
     () => (path ? getMissionExpectedOutput(path, progress) : null),
     [path, progress],
   );
-  const completionStandard = useMemo(
-    () => (path ? getMissionCompletionStandard(path) : null),
-    [path],
-  );
-  const useItems = useMemo(
-    () => (path ? buildMissionUseItems(path, progress) : []),
-    [path, progress],
-  );
-  const mapRows = useMemo(
-    () => (path ? buildMissionMapRows(path, progress) : []),
-    [path, progress],
-  );
   const successCriteria = useMemo(
     () => (path ? getMissionSuccessPreview(path, progress) : []),
     [path, progress],
-  );
-  const useItNext = useMemo(
-    () => (path ? getMissionUseItNext(path) : null),
-    [path],
-  );
-  const nextBridge = useMemo(
-    () => (path ? getMissionNextBridge(path) : null),
-    [path],
   );
   const headerMeta = useMemo(
     () => (path ? formatMissionMetaLine(path, progress) : null),
     [path, progress],
   );
   const primaryLabel =
-    landingState === "active" ? "Continue in Room" : "Start in Room";
+    landingState === "completed"
+      ? "Review your work"
+      : landingState === "active"
+        ? "Continue"
+        : "Start";
   const workHref =
     achievement?.share_slug ? getProgressEvidenceRoute(achievement.share_slug) : null;
-  const recommendedRoomName = recommendedRoom
-    ? getPartyLaunchDisplayName(recommendedRoom)
-    : null;
-  const recommendedRoomSupport =
-    recommendedRoom && !roomsLoading
-      ? getLaunchRoomMissionFitHint(recommendedRoom) ??
-        getPartyLaunchPickerDescription(recommendedRoom)
-      : roomsLoading
-        ? "Finding the best room for this mission."
-        : availableRooms.length > 0 && !roomsError
-          ? "Pick the room that feels right for this mission."
-          : "Browse rooms to find the right place to do this mission.";
-  const fallbackRoomName = fallbackRoom
-    ? getPartyLaunchDisplayName(fallbackRoom)
-    : null;
-  const showSecondaryAction = Boolean(
-    recommendedRoom && !roomsLoading && !roomsError && availableRooms.length > 0,
-  );
-  const primaryActionLoading = Boolean(path) && (roomsLoading || isLaunchingRoom);
   const currentStep = path ? getMissionCurrentItem(path, progress) : null;
 
   const handlePrimaryAction = () => {
+    if (!path) return;
+    router.push(getMissionSoloRoute(path.id));
+  };
+
+  const handleRoomAction = () => {
     if (!path) return;
 
     if (recommendedRoom) {
@@ -593,11 +372,9 @@ export function MissionDetailPage({ pathId }: { pathId: string }) {
               </div>
 
               <div className="max-w-[760px] space-y-2">
-                {launchDomain ? (
-                  <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-[var(--sg-shell-500)]">
-                    {launchDomain.label}
-                  </p>
-                ) : null}
+                <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-[var(--sg-forest-500)]">
+                  Mission
+                </p>
 
                 <h1
                   className="text-[2rem] leading-[1.04] text-[var(--sg-shell-900)] sm:text-[2.6rem]"
@@ -605,7 +382,7 @@ export function MissionDetailPage({ pathId }: { pathId: string }) {
                     fontFamily: "var(--font-display), 'Fraunces', Georgia, serif",
                   }}
                 >
-                  {path?.title ?? "Mission"}
+                  {path ? getMissionPlayerTitle(path) : "Mission"}
                 </h1>
 
                 {headerMeta ? (
@@ -629,51 +406,23 @@ export function MissionDetailPage({ pathId }: { pathId: string }) {
             <div className="xl:grid xl:grid-cols-[minmax(0,1fr)_20rem]">
               <LaunchRail
                 state={landingState}
+                itemsCompleted={progress?.items_completed ?? 0}
                 primaryLabel={primaryLabel}
                 onPrimaryAction={handlePrimaryAction}
-                onSecondaryAction={
-                  showSecondaryAction ? () => setShowRoomPicker(true) : null
-                }
-                recommendedRoomName={recommendedRoomName}
-                recommendedRoomSupport={recommendedRoomSupport}
-                fallbackRoomName={fallbackRoomName}
-                isLoading={primaryActionLoading}
+                onRoomAction={handleRoomAction}
+                isRoomLoading={roomsLoading || isLaunchingRoom}
                 isCompleted={landingState === "completed"}
                 workHref={workHref}
               />
 
               <div className="order-2 px-5 py-6 sm:px-8 sm:py-7 xl:order-1">
                 <div className="mx-auto max-w-[760px] space-y-6">
-                  <MissionSection title="Mission framing">
-                    <div className="space-y-3">
-                      {framing ? (
-                        <p className="text-lg leading-8 text-[var(--sg-shell-900)]">
-                          {framing}
-                        </p>
-                      ) : null}
-
-                      {whyItMatters ? (
-                        <div className="space-y-1">
-                          <p className="text-xs font-semibold uppercase tracking-[0.16em] text-[var(--sg-shell-500)]">
-                            Why this matters now
-                          </p>
-                          <p className="text-sm leading-7 text-[var(--sg-shell-600)]">
-                            {whyItMatters}
-                          </p>
-                        </div>
-                      ) : null}
-
-                      {scopeGuardrails ? (
-                        <div className="space-y-1">
-                          <p className="text-xs font-semibold uppercase tracking-[0.16em] text-[var(--sg-shell-500)]">
-                            Keep it focused
-                          </p>
-                          <p className="text-sm leading-7 text-[var(--sg-shell-600)]">
-                            {scopeGuardrails}
-                          </p>
-                        </div>
-                      ) : null}
-                    </div>
+                  <MissionSection title="The job">
+                    {framing ? (
+                      <p className="text-lg leading-8 text-[var(--sg-shell-900)]">
+                        {framing}
+                      </p>
+                    ) : null}
                   </MissionSection>
 
                   <MissionSection title={outputTitle}>
@@ -687,54 +436,11 @@ export function MissionDetailPage({ pathId }: { pathId: string }) {
                       <p className="text-lg leading-8 text-[var(--sg-shell-900)]">
                         {outputLine}
                       </p>
-
-                      {completionStandard ? (
-                        <div className="space-y-1">
-                          <p className="text-xs font-semibold uppercase tracking-[0.16em] text-[var(--sg-shell-500)]">
-                            Done looks like
-                          </p>
-                          <p className="text-sm leading-7 text-[var(--sg-shell-600)]">
-                            {completionStandard}
-                          </p>
-                        </div>
-                      ) : null}
                     </div>
                   </MissionSection>
 
-                  {useItems.length > 0 ? (
-                    <MissionSection title="What you'll use">
-                      <dl className="grid gap-x-8 gap-y-4 sm:grid-cols-2">
-                        {useItems.map((item) => (
-                          <div key={item.label} className="space-y-1">
-                            <dt className="text-xs font-semibold uppercase tracking-[0.16em] text-[var(--sg-shell-500)]">
-                              {item.label}
-                            </dt>
-                            <dd className="text-sm leading-6 text-[var(--sg-shell-700)]">
-                              {item.value}
-                            </dd>
-                          </div>
-                        ))}
-                      </dl>
-                    </MissionSection>
-                  ) : null}
-
-                  <MissionSection title="Mission map">
-                    <div className="space-y-3">
-                      <p className="text-sm leading-6 text-[var(--sg-shell-500)]">
-                        A quiet outline of what&apos;s ahead.
-                      </p>
-                      <MissionMapPreview rows={mapRows} />
-                    </div>
-                  </MissionSection>
-
-                  <MissionSection title="What good looks like">
-                    <div className="space-y-3">
-                      {successCriteria.length > 0 ? (
-                        <p className="text-sm leading-6 text-[var(--sg-shell-500)]">
-                          Keep the artifact tight enough that another marketer could reuse it without extra explanation.
-                        </p>
-                      ) : null}
-
+                  {successCriteria.length > 0 ? (
+                    <MissionSection title="Done looks like">
                       <ul className="space-y-3">
                         {successCriteria.map((criterion) => (
                           <li
@@ -749,40 +455,11 @@ export function MissionDetailPage({ pathId }: { pathId: string }) {
                           </li>
                         ))}
                       </ul>
-
                       {landingState === "active" && currentStep ? (
-                        <p className="text-sm leading-6 text-[var(--sg-shell-500)]">
-                          Current step in room: {currentStep.title}
+                        <p className="pt-2 text-sm leading-6 text-[var(--sg-shell-500)]">
+                          Next: {getMissionStepCoaching(path, currentStep)}
                         </p>
                       ) : null}
-                    </div>
-                  </MissionSection>
-
-                  {useItNext || nextBridge ? (
-                    <MissionSection title="After this mission">
-                      <div className="space-y-3">
-                        {useItNext ? (
-                          <div className="space-y-1">
-                            <p className="text-xs font-semibold uppercase tracking-[0.16em] text-[var(--sg-shell-500)]">
-                              Use it next
-                            </p>
-                            <p className="text-sm leading-7 text-[var(--sg-shell-600)]">
-                              {useItNext}
-                            </p>
-                          </div>
-                        ) : null}
-
-                        {nextBridge ? (
-                          <div className="space-y-1">
-                            <p className="text-xs font-semibold uppercase tracking-[0.16em] text-[var(--sg-shell-500)]">
-                              What this unlocks next
-                            </p>
-                            <p className="text-sm leading-7 text-[var(--sg-shell-600)]">
-                              {nextBridge}
-                            </p>
-                          </div>
-                        ) : null}
-                      </div>
                     </MissionSection>
                   ) : null}
                 </div>

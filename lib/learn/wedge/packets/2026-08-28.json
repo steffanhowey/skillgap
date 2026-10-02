@@ -1,0 +1,29 @@
+{
+  "schema_version": "editorial_source_packet_v0",
+  "application_stable_key": "pmm-b2b-saas-evidence-backed-launch-v1",
+  "dated": "2026-08-28",
+  "expires_at": "2026-09-27T00:00:00.000Z",
+  "status": "editorial_approved",
+  "why_now_label": "editorial_next_step",
+  "why_now": "Editorial next step for the founder-only evidence-to-message path. This packet is dated and founder-approved. It is not a live market-demand signal.",
+  "audience": "B2B SaaS product marketing managers with a launch entering review within seven days.",
+  "workflow": "Confirm launch context and a labeled proof ledger, build a three-row message matrix, run a server-owned pressure test, then export claim-linked work.",
+  "proof_hygiene": [
+    "Label every supplied fact as approved_fact or hypothesis.",
+    "Do not invent metrics, customers, approvals, or market facts.",
+    "Deterministic blockers always win over model opinion.",
+    "Allowed copy: AI-reviewed against the proof you supplied."
+  ],
+  "sources": [
+    {
+      "title": "Message Review lab fixture set",
+      "kind": "editorial",
+      "note": "Internal judgeable cases for claim-to-proof, audience fit, and injection isolation. Not a public catalog asset."
+    },
+    {
+      "title": "Track F 14-day cut",
+      "kind": "editorial",
+      "note": "Private allowlisted spine only. No sixth public mission and no intelligence-pipeline currentness claim."
+    }
+  ]
+}

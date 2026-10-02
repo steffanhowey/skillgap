@@ -105,3 +105,28 @@ export function trackRoomBridgeAccepted(roomId: string): void {
 export function trackRoomBridgeDismissed(dismissalCount: number): void {
   track("room_bridge_dismissed", { dismissal_count: dismissalCount });
 }
+
+/** User opened their first recommended mission. */
+export function trackFirstMissionOpened(pathId: string): void {
+  track("first_mission_opened", { path_id: pathId });
+}
+
+/** User started a mission inside a room. */
+export function trackMissionStartedInRoom(pathId: string, roomId: string): void {
+  track("mission_started_in_room", { path_id: pathId, room_id: roomId });
+}
+
+/** User submitted Do work for evaluation. */
+export function trackMissionSubmitted(pathId: string): void {
+  track("mission_submitted", { path_id: pathId });
+}
+
+/** User completed a mission. */
+export function trackMissionCompleted(pathId: string): void {
+  track("mission_completed", { path_id: pathId });
+}
+
+/** A skill receipt was issued. */
+export function trackReceiptIssued(pathId: string): void {
+  track("receipt_issued", { path_id: pathId });
+}

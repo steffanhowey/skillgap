@@ -6,6 +6,8 @@ import { Logo } from "@/components/shell/Logo";
 import { useAuth } from "@/components/providers/AuthProvider";
 import { createClient } from "@/lib/supabase/client";
 import { useUsernameValidation } from "@/lib/username";
+import { generateHandleFromName } from "@/lib/onboarding/handles";
+import { getMissionRoute, MISSIONS_ROUTE } from "@/lib/appRoutes";
 import type {
   ProfessionalFunction,
   FluencyLevel,
@@ -24,12 +26,7 @@ import FluencyStep from "./steps/FluencyStep";
 import PathRecommendationStep from "./steps/PathRecommendationStep";
 import UsernameStep from "./steps/UsernameStep";
 
-const STEPS = ["Function", "Fluency", "Path", "Username"];
-
-function generateTempHandle(): string {
-  const rand = Math.random().toString(36).slice(2, 8);
-  return `user_${rand}`;
-}
+const STEPS = ["Role", "Fluency", "Mission"];
 
 export default function OnboardPage() {
   return (
@@ -78,7 +75,9 @@ function OnboardContent() {
     })()
   );
 
-  const [step, setStep] = useState(isReOnboard ? 3 : (savedProgress.current?.step ?? 0));
+  const [step, setStep] = useState(
+    isReOnboard ? 3 : Math.min(savedProgress.current?.step ?? 0, 2),
+  );
   const [saving, setSaving] = useState(false);
 
   // Timing for analytics
@@ -196,27 +195,13 @@ function OnboardContent() {
     setStep(2);
   }, []);
 
-  const handleStartPath = useCallback(
-    (pick: OnboardingPick) => {
-      const elapsed = Date.now() - stepStartRef.current;
-      trackStepCompleted(2, pick.display_title, elapsed);
-      trackPathAccepted(pick.id, true);
-      setSelectedPick(pick);
-      setStep(3);
-    },
-    []
-  );
-
-  const handleBrowse = useCallback(() => {
-    setSelectedPick(null);
-    setStep(3);
-  }, []);
-
   /** Save all onboarding data and complete the wizard. */
   const completeOnboarding = useCallback(
-    async (handle: string) => {
+    async (handle: string, pickOverride?: OnboardingPick | null) => {
       if (!user) return;
       setSaving(true);
+
+      const pick = pickOverride !== undefined ? pickOverride : selectedPick;
 
       const updates: Record<string, unknown> = {
         username: handle,
@@ -227,8 +212,8 @@ function OnboardContent() {
       if (secondaryFunctions.length > 0)
         updates.secondary_functions = secondaryFunctions;
       if (fluencyLevel) updates.fluency_level = fluencyLevel;
-      if (selectedPick)
-        updates.recommended_first_path_id = selectedPick.id;
+      if (pick?.path_id)
+        updates.recommended_first_path_id = pick.path_id;
 
       // Persist display name if not already saved
       if (displayName.trim()) updates.display_name = displayName.trim();
@@ -242,6 +227,13 @@ function OnboardContent() {
         // Handle unique constraint on username
         if (error.code === "23505") {
           setSaving(false);
+          if (!isReOnboard && user) {
+            const fallback = `learner_${user.id.replace(/-/g, "").slice(0, 10)}`;
+            if (handle !== fallback) {
+              void completeOnboarding(fallback, pick);
+              return;
+            }
+          }
           username.setValue(handle);
           return;
         }
@@ -251,7 +243,7 @@ function OnboardContent() {
       // Track onboarding completion
       const totalDuration = Date.now() - wizardStartRef.current;
       trackStepCompleted(3, handle, Date.now() - stepStartRef.current);
-      trackOnboardingCompleted(totalDuration, 4);
+      trackOnboardingCompleted(totalDuration, isReOnboard ? 1 : 3);
 
       // Clear wizard progress from localStorage
       localStorage.removeItem("sg_onboard_progress");
@@ -265,12 +257,10 @@ function OnboardContent() {
         // Fallback avatar will be generated on next profile load
       });
 
-      // Navigate to the selected path or browse page
-      if (selectedPick) {
-        // Generate path from the pick topic, then navigate
-        router.push(`/missions?q=${encodeURIComponent(selectedPick.path_topic)}`);
+      if (pick?.path_id) {
+        router.push(getMissionRoute(pick.path_id));
       } else {
-        router.push("/missions");
+        router.push(MISSIONS_ROUTE);
       }
     },
     [
@@ -283,8 +273,25 @@ function OnboardContent() {
       selectedPick,
       displayName,
       username,
+      isReOnboard,
     ]
   );
+
+  const handleStartPath = useCallback(
+    (pick: OnboardingPick) => {
+      const elapsed = Date.now() - stepStartRef.current;
+      trackStepCompleted(2, pick.display_title, elapsed);
+      trackPathAccepted(pick.id, true);
+      setSelectedPick(pick);
+      void completeOnboarding(generateHandleFromName(displayName), pick);
+    },
+    [completeOnboarding, displayName]
+  );
+
+  const handleBrowse = useCallback(() => {
+    setSelectedPick(null);
+    void completeOnboarding(generateHandleFromName(displayName), null);
+  }, [completeOnboarding, displayName]);
 
   const handleUsernameConfirm = useCallback(() => {
     if (!username.isValid) return;
@@ -292,8 +299,8 @@ function OnboardContent() {
   }, [username.isValid, username.value, completeOnboarding]);
 
   const handleUsernameSkip = useCallback(() => {
-    completeOnboarding(generateTempHandle());
-  }, [completeOnboarding]);
+    completeOnboarding(generateHandleFromName(displayName));
+  }, [completeOnboarding, displayName]);
 
   // --- Auth guard ---
 
@@ -367,6 +374,7 @@ function OnboardContent() {
             primaryFunction={primaryFunction}
             fluencyLevel={fluencyLevel}
             secondaryFunctions={secondaryFunctions}
+            saving={saving}
             onStartPath={handleStartPath}
             onBrowse={handleBrowse}
           />
@@ -377,6 +385,9 @@ function OnboardContent() {
           <UsernameStep
             username={username}
             saving={saving}
+            confirmLabel={
+              selectedPick?.path_id ? "Start this mission" : "See all missions"
+            }
             onConfirm={handleUsernameConfirm}
             onSkip={handleUsernameSkip}
           />

@@ -116,6 +116,7 @@ export async function POST(request: Request): Promise<NextResponse> {
             path.modules?.length ?? pick.module_count,
           tool_names: pick.tool_names,
           sort_order: 0,
+          path_id: path.id,
         });
 
       if (pickError) {

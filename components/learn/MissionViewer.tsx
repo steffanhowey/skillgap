@@ -15,6 +15,8 @@ import {
   RoomStageScaffold,
   RoomStageSecondaryButton,
 } from "./RoomStageScaffold";
+import { buildToolUrl } from "@/lib/learn/toolRegistry";
+import { trackMissionSubmitted } from "@/lib/onboarding/tracking";
 import type { PathItem, ItemState, AiTool } from "@/lib/types";
 
 // ─── Types ──────────────────────────────────────────────────
@@ -23,6 +25,7 @@ interface MissionViewerProps {
   item: PathItem;
   isCompleted: boolean;
   onComplete: (stateData: Partial<ItemState>) => void;
+  onLeave?: () => void;
   variant?: "default" | "roomOverlay" | "missionPage";
 }
 
@@ -65,10 +68,12 @@ export function MissionViewer({
   item,
   isCompleted,
   onComplete,
+  onLeave,
   variant = "default",
 }: MissionViewerProps) {
   const mission = item.mission!;
   const isImmersiveStage = variant === "roomOverlay" || variant === "missionPage";
+  const isSoloPage = variant === "missionPage";
   const stageVariant = variant === "missionPage" ? "missionPage" : "default";
 
   const [phase, setPhase] = useState<MissionPhase>("briefing");
@@ -77,6 +82,7 @@ export function MissionViewer({
   const [loading, setLoading] = useState(false);
   const [attempts, setAttempts] = useState(0);
   const [toastMessage, setToastMessage] = useState<string | null>(null);
+  const [evalError, setEvalError] = useState<string | null>(null);
 
   // Reset state when navigating to a different item
   useEffect(() => {
@@ -109,7 +115,7 @@ export function MissionViewer({
           "Couldn't copy automatically — copy the prompt above."
         )
     );
-    window.open(tool.url, "_blank", "noopener,noreferrer");
+    window.open(buildToolUrl(tool, mission.tool_prompt), "_blank", "noopener,noreferrer");
     setPhase("working");
   }, [mission.tool_prompt, tool]);
 
@@ -125,6 +131,7 @@ export function MissionViewer({
     setLoading(true);
     const attempt = attempts + 1;
     setAttempts(attempt);
+    setEvalError(null);
     try {
       const res = await fetch("/api/learn/evaluate", {
         method: "POST",
@@ -137,15 +144,33 @@ export function MissionViewer({
           context: mission.context,
         }),
       });
-      const data = await res.json();
-      setFeedback(data);
-      setPhase("feedback");
-    } catch {
+      const data = (await res.json()) as {
+        feedback?: string;
+        quality?: string;
+        criteria_results?: { criterion: string; passed: boolean }[];
+        error?: string;
+      };
+      if (
+        !res.ok ||
+        data.quality === "unevaluated" ||
+        (data.quality !== "strong" &&
+          data.quality !== "good" &&
+          data.quality !== "needs_work")
+      ) {
+        setEvalError(
+          data.error ?? "Could not evaluate right now. Try again.",
+        );
+        return;
+      }
       setFeedback({
-        feedback: "Could not evaluate right now. Try again later.",
-        quality: "good",
+        feedback: data.feedback ?? "",
+        quality: data.quality,
+        criteria_results: data.criteria_results,
       });
       setPhase("feedback");
+      trackMissionSubmitted(item.item_id ?? item.content_id ?? "unknown");
+    } catch {
+      setEvalError("Could not evaluate right now. Try again.");
     } finally {
       setLoading(false);
     }
@@ -176,9 +201,9 @@ export function MissionViewer({
     });
   }, [onComplete, submission, feedback, attempts]);
 
-  const handleSkip = useCallback(() => {
-    onComplete({ skipped: true });
-  }, [onComplete]);
+  const handleLeave = useCallback(() => {
+    onLeave?.();
+  }, [onLeave]);
 
   if (isImmersiveStage) {
     if (isCompleted) {
@@ -187,11 +212,13 @@ export function MissionViewer({
           variant={stageVariant}
           eyebrow="Build"
           title={item.title}
-          description={roomDescription}
+          description={isSoloPage ? undefined : roomDescription}
           badge={
-            <span className="rounded-full border border-white/[0.08] bg-white/[0.04] px-3 py-1 text-xs font-medium text-white/55">
-              {guidanceLabel}
-            </span>
+            isSoloPage ? undefined : (
+              <span className="rounded-full border border-white/[0.08] bg-white/[0.04] px-3 py-1 text-xs font-medium text-white/55">
+                {guidanceLabel}
+              </span>
+            )
           }
           footerMeta="Build · Completed"
           contentClassName="max-w-[760px] space-y-4"
@@ -209,7 +236,9 @@ export function MissionViewer({
       );
     }
 
-    let footerMeta = `Build · ${tool.name} · ${guidanceLabel}`;
+    let footerMeta = isSoloPage
+      ? `Build · ${tool.name}`
+      : `Build · ${tool.name} · ${guidanceLabel}`;
     let primaryAction: ReactNode = null;
     let secondaryAction: ReactNode = null;
     let body: ReactNode = null;
@@ -225,11 +254,12 @@ export function MissionViewer({
           Copy Prompt & Open {tool.name}
         </Button>
       );
-      secondaryAction = (
-        <RoomStageSecondaryButton onClick={handleSkip}>
-          Skip
-        </RoomStageSecondaryButton>
-      );
+      secondaryAction =
+        onLeave && !isSoloPage ? (
+          <RoomStageSecondaryButton onClick={handleLeave}>
+            Leave mission
+          </RoomStageSecondaryButton>
+        ) : null;
       body = (
         <>
           {toastMessage ? (
@@ -238,7 +268,9 @@ export function MissionViewer({
             </RoomStagePanel>
           ) : null}
 
-          {mission.context && roomDescription !== mission.context ? (
+          {!isSoloPage &&
+          mission.context &&
+          roomDescription !== mission.context ? (
             <RoomStagePanel>
               <p className="text-sm leading-7 text-white/65">{mission.context}</p>
             </RoomStagePanel>
@@ -273,7 +305,7 @@ export function MissionViewer({
             </RoomStagePanel>
           ) : null}
 
-          {mission.success_criteria.length > 0 ? (
+          {!isSoloPage && mission.success_criteria.length > 0 ? (
             <RoomStagePanel className="space-y-3">
               <p className="text-xs font-semibold uppercase tracking-[0.16em] text-white/40">
                 Success criteria
@@ -314,12 +346,14 @@ export function MissionViewer({
             </RoomStagePanel>
           ) : null}
 
-          <RoomStagePanel className="space-y-3">
-            <p className="text-xs font-semibold uppercase tracking-[0.16em] text-white/40">
-              Current objective
-            </p>
-            <p className="text-sm leading-7 text-white/70">{mission.objective}</p>
-          </RoomStagePanel>
+          {!isSoloPage ? (
+            <RoomStagePanel className="space-y-3">
+              <p className="text-xs font-semibold uppercase tracking-[0.16em] text-white/40">
+                Current objective
+              </p>
+              <p className="text-sm leading-7 text-white/70">{mission.objective}</p>
+            </RoomStagePanel>
+          ) : null}
 
           <RoomStagePanel className="space-y-3">
             <p className="text-xs font-semibold uppercase tracking-[0.16em] text-white/40">
@@ -328,7 +362,7 @@ export function MissionViewer({
             <CodeBlock code={mission.tool_prompt} variant={variant} />
           </RoomStagePanel>
 
-          {mission.success_criteria.length > 0 ? (
+          {!isSoloPage && mission.success_criteria.length > 0 ? (
             <RoomStagePanel className="space-y-3">
               <p className="text-xs font-semibold uppercase tracking-[0.16em] text-white/40">
                 Success looks like
@@ -358,11 +392,12 @@ export function MissionViewer({
           Submit For Review
         </Button>
       );
-      secondaryAction = (
-        <RoomStageSecondaryButton onClick={handleSkip}>
-          Skip Step
-        </RoomStageSecondaryButton>
-      );
+      secondaryAction =
+        onLeave && !isSoloPage ? (
+          <RoomStageSecondaryButton onClick={handleLeave}>
+            Leave mission
+          </RoomStageSecondaryButton>
+        ) : null;
       body = (
         <>
           <RoomStagePanel>
@@ -382,6 +417,9 @@ export function MissionViewer({
               className="w-full resize-none bg-transparent text-sm leading-7 text-white placeholder:text-white/25 focus:outline-none"
             />
           </RoomStagePanel>
+          {evalError ? (
+            <p className="text-sm text-[var(--sg-coral-400)]">{evalError}</p>
+          ) : null}
         </>
       );
     }
@@ -453,11 +491,13 @@ export function MissionViewer({
         variant={stageVariant}
         eyebrow="Build"
         title={item.title}
-        description={roomDescription}
+        description={isSoloPage ? undefined : roomDescription}
         badge={
-          <span className="rounded-full border border-white/[0.08] bg-white/[0.04] px-3 py-1 text-xs font-medium text-white/55">
-            {guidanceLabel}
-          </span>
+          isSoloPage ? undefined : (
+            <span className="rounded-full border border-white/[0.08] bg-white/[0.04] px-3 py-1 text-xs font-medium text-white/55">
+              {guidanceLabel}
+            </span>
+          )
         }
         footerMeta={footerMeta}
         primaryAction={primaryAction}
@@ -584,11 +624,13 @@ export function MissionViewer({
               >
                 Copy Prompt & Open {tool.name}
               </Button>
-              <div>
-                <Button variant="ghost" size="sm" onClick={handleSkip}>
-                  Skip
-                </Button>
-              </div>
+              {onLeave ? (
+                <div>
+                  <Button variant="ghost" size="sm" onClick={handleLeave}>
+                    Leave mission
+                  </Button>
+                </div>
+              ) : null}
             </div>
           </>
         )}
@@ -660,10 +702,16 @@ export function MissionViewer({
               }}
             />
 
+            {evalError ? (
+              <p className="text-xs text-[var(--sg-coral-500)]">{evalError}</p>
+            ) : null}
+
             <div className="flex items-center gap-3 pt-1">
-              <Button variant="link" size="sm" onClick={handleSkip}>
-                Skip this mission
-              </Button>
+              {onLeave ? (
+                <Button variant="link" size="sm" onClick={handleLeave}>
+                  Leave mission
+                </Button>
+              ) : null}
               <Button
                 variant="primary"
                 size="sm"

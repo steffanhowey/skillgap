@@ -221,10 +221,10 @@ export default async function ProgressEvidencePage({
 
           <div className="flex flex-col items-center gap-3 text-center">
             <Link
-              href="/missions"
+              href={`/signup?next=/missions/${achievement.path_id}`}
               className="inline-flex items-center gap-2 rounded-[var(--sg-radius-btn)] bg-[var(--sg-forest-500)] px-5 py-3 text-sm font-semibold text-white transition-all duration-150 hover:opacity-85"
             >
-              Build your own capability record
+              Start this mission
               <ArrowRight size={15} />
             </Link>
             <p className="text-xs leading-5 text-[var(--sg-shell-500)]">

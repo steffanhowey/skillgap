@@ -162,6 +162,47 @@ describe("homeLaunchpad helpers", () => {
     expect(primaryAction.kind).toBe("active");
     expect(primaryAction.mission?.id).toBe(activePath.id);
     expect(primaryAction.recommendation).toBeNull();
+    expect(primaryAction.isFirstMission).toBe(false);
+  });
+
+  it("heroes the recommended first mission when it is not completed", () => {
+    const firstPath = createPath({ id: "first-path", title: "First mission" });
+    const fallback = createMissionRecommendation(
+      createPath({ id: "fallback", title: "Fallback mission" }),
+    );
+
+    const primaryAction = buildHomePrimaryAction({
+      activeMission: null,
+      recommendations: [],
+      fallbackRecommendations: [fallback],
+      recommendedFirstPathId: firstPath.id,
+      completedPathIds: new Set(),
+      knownPaths: [firstPath],
+    });
+
+    expect(primaryAction.kind).toBe("next");
+    expect(primaryAction.isFirstMission).toBe(true);
+    expect(primaryAction.mission?.id).toBe(firstPath.id);
+  });
+
+  it("ignores a recommended first mission that is already completed", () => {
+    const firstPath = createPath({ id: "first-path", title: "First mission" });
+    const fallback = createMissionRecommendation(
+      createPath({ id: "fallback", title: "Fallback mission" }),
+    );
+
+    const primaryAction = buildHomePrimaryAction({
+      activeMission: null,
+      recommendations: [],
+      fallbackRecommendations: [fallback],
+      recommendedFirstPathId: firstPath.id,
+      completedPathIds: new Set([firstPath.id]),
+      knownPaths: [firstPath],
+    });
+
+    expect(primaryAction.kind).toBe("next");
+    expect(primaryAction.isFirstMission).toBe(false);
+    expect(primaryAction.mission?.id).toBe("fallback");
   });
 
   it("uses the first available fallback recommendation when no active mission exists", () => {

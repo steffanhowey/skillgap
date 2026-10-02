@@ -2,11 +2,17 @@ import { NextResponse } from "next/server";
 import { createClient as createServerClient } from "@/lib/supabase/server";
 import { createClient as createAdminClient } from "@/lib/supabase/admin";
 import { mapPathRow, mapProgressRow } from "@/lib/learn/pathGenerator";
+import {
+  applyTaughtHeroUnit,
+  isStaleTaughtHeroProgress,
+  reconcileTaughtHeroProgress,
+} from "@/lib/learn/taughtHero/unit";
 import type { AchievementSummary, LearningProgress } from "@/lib/types";
 import { evaluateSubmission, type SubmissionEvaluation } from "@/lib/learn/evaluator";
 import { UpdateProgressSchema, parseBody } from "@/lib/learn/validation";
 import type { SkillReceipt } from "@/lib/types/skills";
 import type { ActivityEventType } from "@/lib/types/activity";
+import { canCompletePath } from "@/lib/learn/pathCompletion";
 import {
   ACHIEVEMENT_SUMMARY_SELECT,
   generateAchievementShareSlug,
@@ -45,7 +51,7 @@ export async function GET(
     .eq("id", id)
     .then(() => {});
 
-  const path = mapPathRow(pathRow);
+  const path = applyTaughtHeroUnit(mapPathRow(pathRow));
 
   // Check for user progress
   const supabase = await createServerClient();
@@ -65,9 +71,24 @@ export async function GET(
       .single();
 
     if (progressRow) {
-      progress = mapProgressRow(progressRow);
+      const storedProgress = mapProgressRow(progressRow);
+      const staleTaughtProgress = isStaleTaughtHeroProgress(path, storedProgress);
+      progress = reconcileTaughtHeroProgress(path, storedProgress);
 
-      if (progress.status === "completed") {
+      if (staleTaughtProgress && progress) {
+        await admin
+          .from("fp_learning_progress")
+          .update({
+            status: "in_progress",
+            completed_at: null,
+            items_total: progress.items_total,
+            items_completed: progress.items_completed,
+            current_item_index: progress.current_item_index,
+          })
+          .eq("id", progress.id);
+      }
+
+      if (progress?.status === "completed") {
         const { data: achievementRow } = await admin
           .from("fp_achievements")
           .select(ACHIEVEMENT_SUMMARY_SELECT)
@@ -145,7 +166,9 @@ export async function PATCH(
   // Fetch the path for items_total + achievement data
   const { data: pathRow } = await admin
     .from("fp_learning_paths")
-    .select("items, start_count, completion_count, title, topics, difficulty_level")
+    .select(
+      "id, items, start_count, completion_count, title, topics, difficulty_level, description, goal, query, primary_tools, estimated_duration_seconds, modules, source, view_count, created_at, mission_lane_key, mission_topic_slug, mission_launch_domain, mission_family",
+    )
     .eq("id", id)
     .single();
 
@@ -156,7 +179,13 @@ export async function PATCH(
     );
   }
 
-  const pathItems = (pathRow.items as unknown[]) ?? [];
+  const path = applyTaughtHeroUnit(
+    mapPathRow({
+      ...pathRow,
+      id,
+    }),
+  );
+  const pathItems = path.items;
 
   // Check for existing progress
   const { data: existingProgress } = await admin
@@ -167,6 +196,36 @@ export async function PATCH(
     .single();
 
   let progressRow = existingProgress;
+
+  if (progressRow && isStaleTaughtHeroProgress(path, mapProgressRow(progressRow))) {
+    const reconciled = reconcileTaughtHeroProgress(path, mapProgressRow(progressRow));
+    if (reconciled) {
+      const { data: cleared } = await admin
+        .from("fp_learning_progress")
+        .update({
+          status: "in_progress",
+          completed_at: null,
+          items_total: reconciled.items_total,
+          items_completed: reconciled.items_completed,
+          current_item_index: reconciled.current_item_index,
+        })
+        .eq("id", progressRow.id)
+        .select("*")
+        .single();
+      if (cleared) {
+        progressRow = cleared;
+      } else {
+        progressRow = {
+          ...progressRow,
+          status: "in_progress",
+          completed_at: null,
+          items_total: reconciled.items_total,
+          items_completed: reconciled.items_completed,
+          current_item_index: reconciled.current_item_index,
+        };
+      }
+    }
+  }
 
   if (!progressRow) {
     // Create new progress record
@@ -247,13 +306,15 @@ export async function PATCH(
   if (body.item_completed) {
     const itemStates = (existing.item_states as Record<string, unknown>) ?? {};
     const existingItemState = (itemStates[body.item_completed] as Record<string, unknown>) ?? {};
+    const incomingState =
+      (body.item_state as Record<string, unknown> | undefined) ?? {};
+    const isSkipped = incomingState.skipped === true;
+    const completedItem = pathItems.find(
+      (item) => (item as { item_id?: string }).item_id === body.item_completed
+    ) as { task_type?: string; mission?: { objective?: string; success_criteria?: string[] } } | undefined;
 
     // Evaluate submission if provided (for "do" tasks with practice output)
-    if (body.submission) {
-      const completedItem = pathItems.find(
-        (item) => (item as { item_id?: string }).item_id === body.item_completed
-      ) as { task_type?: string; mission?: { objective?: string; success_criteria?: string[] } } | undefined;
-
+    if (!isSkipped && body.submission) {
       if (completedItem?.task_type === "do" && completedItem.mission) {
         evaluation = await evaluateSubmission({
           submission: body.submission,
@@ -265,22 +326,35 @@ export async function PATCH(
 
     itemStates[body.item_completed] = {
       ...existingItemState,
-      ...(body.item_state ?? {}),
-      completed: true,
-      completed_at: new Date().toISOString(),
+      ...incomingState,
+      completed: !isSkipped,
+      skipped: isSkipped,
+      completed_at: isSkipped
+        ? existingItemState.completed_at
+        : new Date().toISOString(),
       ...(evaluation ? { evaluation } : {}),
       ...(body.submission ? { submission: body.submission } : {}),
+      ...(incomingState.submission_text
+        ? { submission_text: incomingState.submission_text }
+        : {}),
     };
     updates.item_states = itemStates;
 
     // Count completed items
-    const completedCount = Object.values(itemStates).filter(
-      (s) => (s as { completed: boolean }).completed
-    ).length;
+    const completedCount = Object.values(itemStates).filter((state) => {
+      const itemState = state as { completed?: boolean; skipped?: boolean };
+      return itemState.completed === true && itemState.skipped !== true;
+    }).length;
     updates.items_completed = completedCount;
 
     // ── Path completion logic (atomic + idempotent) ──────────
-    if (completedCount >= pathItems.length && !existing.completed_at) {
+    if (
+      canCompletePath(
+        pathItems as Array<{ item_id?: string; task_type?: string }>,
+        itemStates,
+      ) &&
+      !existing.completed_at
+    ) {
       updates.status = "completed";
       updates.completed_at = new Date().toISOString();
 

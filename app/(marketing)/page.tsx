@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { getAllMarketStates } from "@/lib/intelligence/marketState";
 
 /**
  * Brand colors hardcoded to avoid ThemeProvider character accent overrides.
@@ -9,10 +10,37 @@ const BRAND = {
   forest500: "#3A7D53",
   forest400: "#4A9E6A",
   forest300: "#6BBF87",
+  cream: "#F7F4EE",
   white: "#FFFFFF",
 } as const;
 
-export default function LandingPage() {
+const HOW_IT_WORKS = [
+  {
+    eyebrow: "Mission",
+    title: "Do real work in real tools",
+    body: "You get a brief, a prompt, and a finish line. Practice in Claude, ChatGPT, or Cursor — not a simulation.",
+  },
+  {
+    eyebrow: "Work",
+    title: "Leave with something you can use",
+    body: "Each mission ends in a brief, matrix, or other artifact you can take into a real review. That is the value.",
+  },
+  {
+    eyebrow: "Next",
+    title: "Come back for the next mission",
+    body: "After you finish, you can share the work, join a room if you want company, or start the next mission.",
+  },
+] as const;
+
+export default async function LandingPage() {
+  let showPulse = false;
+  try {
+    const states = await getAllMarketStates();
+    showPulse = states.length > 0;
+  } catch {
+    showPulse = false;
+  }
+
   return (
     <div
       className="flex min-h-screen flex-col"
@@ -22,7 +50,6 @@ export default function LandingPage() {
         background: BRAND.white,
       }}
     >
-      {/* Nav */}
       <header
         className="fixed top-0 left-0 right-0 z-[1000] flex items-center justify-between px-8"
         style={{
@@ -73,113 +100,190 @@ export default function LandingPage() {
         </div>
       </header>
 
-      {/* Hero */}
-      <main
-        className="relative flex min-h-screen flex-1 flex-col items-center justify-center overflow-hidden"
-        style={{
-          backgroundColor: BRAND.forest900,
-          backgroundImage: "radial-gradient(circle, rgba(255,255,255,0.03) 1px, transparent 1px)",
-          backgroundSize: "24px 24px",
-          padding: "80px 32px 60px",
-        }}
-      >
-        {/* Green radial glow */}
-        <div
-          className="pointer-events-none absolute inset-0"
+      <main className="flex flex-1 flex-col">
+        <section
+          className="relative flex min-h-screen flex-col items-center justify-center overflow-hidden"
           style={{
-            background: "radial-gradient(ellipse at 50% 30%, rgba(58,125,83,0.08) 0%, transparent 60%)",
+            backgroundColor: BRAND.forest900,
+            backgroundImage:
+              "radial-gradient(circle, rgba(255,255,255,0.03) 1px, transparent 1px)",
+            backgroundSize: "24px 24px",
+            padding: "80px 32px 60px",
           }}
-        />
-
-        <div className="relative z-10 mx-auto max-w-[1080px] text-center">
-          {/* Eyebrow label */}
+        >
           <div
-            className="mb-6 inline-flex items-center gap-2 uppercase"
+            className="pointer-events-none absolute inset-0"
             style={{
-              fontFamily: "var(--font-body), 'DM Sans', sans-serif",
-              fontSize: 12,
-              fontWeight: 600,
-              letterSpacing: "0.1em",
-              color: BRAND.forest300,
+              background:
+                "radial-gradient(ellipse at 50% 30%, rgba(58,125,83,0.08) 0%, transparent 60%)",
             }}
-          >
-            <span
-              className="inline-block rounded-full"
+          />
+
+          <div className="relative z-10 mx-auto max-w-[1080px] text-center">
+            <div
+              className="mb-6 inline-flex items-center gap-2 uppercase"
               style={{
-                width: 6,
-                height: 6,
-                background: BRAND.forest400,
-                animation: "pulse 2s ease-in-out infinite",
+                fontFamily: "var(--font-body), 'DM Sans', sans-serif",
+                fontSize: 12,
+                fontWeight: 600,
+                letterSpacing: "0.1em",
+                color: BRAND.forest300,
               }}
-            />
-            AI fluency for professionals
-          </div>
+            >
+              <span
+                className="inline-block rounded-full"
+                style={{
+                  width: 6,
+                  height: 6,
+                  background: BRAND.forest400,
+                  animation: "pulse 2s ease-in-out infinite",
+                }}
+              />
+              AI fluency for professionals
+            </div>
 
-          {/* Headline */}
-          <h1
-            style={{
-              fontFamily: "var(--font-display), 'Fraunces', Georgia, serif",
-              fontSize: "clamp(36px, 5vw, 56px)",
-              fontWeight: 600,
-              color: BRAND.white,
-              lineHeight: 1.15,
-              letterSpacing: "-0.025em",
-              marginBottom: 20,
-            }}
-          >
-            Become AI-native in your role.
-          </h1>
-
-          {/* Subhead */}
-          <p
-            className="mx-auto"
-            style={{
-              fontSize: 16,
-              color: "rgba(255, 255, 255, 0.4)",
-              lineHeight: 1.6,
-              maxWidth: 620,
-              marginBottom: 60,
-            }}
-          >
-            Guided pathways, live accountability, and real-world practice for
-            professionals learning the tools and skills shaping modern work.
-          </p>
-
-          {/* CTAs */}
-          <div className="flex flex-col items-center gap-4 sm:flex-row sm:justify-center">
-            <Link
-              href="/signup"
-              className="inline-flex items-center justify-center font-semibold no-underline transition-colors"
+            <h1
               style={{
-                padding: "16px 32px",
-                background: BRAND.forest500,
+                fontFamily: "var(--font-display), 'Fraunces', Georgia, serif",
+                fontSize: "clamp(36px, 5vw, 56px)",
+                fontWeight: 600,
                 color: BRAND.white,
-                borderRadius: 10,
-                fontSize: 16,
-                fontWeight: 600,
+                lineHeight: 1.15,
+                letterSpacing: "-0.025em",
+                marginBottom: 20,
               }}
             >
-              Build my AI-native path
-            </Link>
-            <Link
-              href="#how-it-works"
-              className="inline-flex items-center justify-center font-semibold no-underline transition-colors"
+              Do one real mission. Leave with work you can use.
+            </h1>
+
+            <p
+              className="mx-auto"
               style={{
-                padding: "16px 32px",
-                border: "1px solid rgba(255, 255, 255, 0.15)",
-                color: "rgba(255, 255, 255, 0.6)",
-                borderRadius: 10,
                 fontSize: 16,
+                color: "rgba(255, 255, 255, 0.4)",
+                lineHeight: 1.6,
+                maxWidth: 620,
+                marginBottom: 60,
+              }}
+            >
+              Practice a marketing brief in Claude or ChatGPT. Finish with an
+              artifact you can take into a real review.
+            </p>
+
+            <div className="flex flex-col items-center gap-4 sm:flex-row sm:justify-center">
+              <Link
+                href="/signup"
+                className="inline-flex items-center justify-center font-semibold no-underline transition-colors"
+                style={{
+                  padding: "16px 32px",
+                  background: BRAND.forest500,
+                  color: BRAND.white,
+                  borderRadius: 10,
+                  fontSize: 16,
+                  fontWeight: 600,
+                }}
+              >
+                Start my first mission
+              </Link>
+              <Link
+                href="#how-it-works"
+                className="inline-flex items-center justify-center font-semibold no-underline transition-colors"
+                style={{
+                  padding: "16px 32px",
+                  border: "1px solid rgba(255, 255, 255, 0.15)",
+                  color: "rgba(255, 255, 255, 0.6)",
+                  borderRadius: 10,
+                  fontSize: 16,
+                  fontWeight: 600,
+                }}
+              >
+                See how it works
+              </Link>
+            </div>
+          </div>
+        </section>
+
+        <section
+          id="how-it-works"
+          className="scroll-mt-16 px-6 py-20 sm:px-8 sm:py-24"
+          style={{ background: BRAND.cream }}
+        >
+          <div className="mx-auto max-w-[1080px]">
+            <p
+              className="mb-3 text-xs font-semibold uppercase tracking-[0.18em]"
+              style={{ color: BRAND.forest500 }}
+            >
+              How it works
+            </p>
+            <h2
+              className="mb-12 max-w-xl text-3xl leading-tight sm:text-4xl"
+              style={{
+                fontFamily: "var(--font-display), 'Fraunces', Georgia, serif",
+                color: BRAND.forest900,
                 fontWeight: 600,
               }}
             >
-              See how it works
-            </Link>
+              One mission. Real tools. Work you can use.
+            </h2>
+
+            <div className="grid gap-6 md:grid-cols-3">
+              {HOW_IT_WORKS.map((beat, index) => (
+                <div
+                  key={beat.eyebrow}
+                  className="rounded-xl border p-6"
+                  style={{
+                    background: BRAND.white,
+                    borderColor: "rgba(15, 35, 24, 0.08)",
+                  }}
+                >
+                  <p
+                    className="mb-3 text-[11px] font-semibold uppercase tracking-[0.18em]"
+                    style={{ color: BRAND.forest500 }}
+                  >
+                    {index + 1}. {beat.eyebrow}
+                  </p>
+                  <h3
+                    className="mb-2 text-xl leading-snug"
+                    style={{
+                      fontFamily:
+                        "var(--font-display), 'Fraunces', Georgia, serif",
+                      color: BRAND.forest900,
+                      fontWeight: 600,
+                    }}
+                  >
+                    {beat.title}
+                  </h3>
+                  <p
+                    className="text-sm leading-6"
+                    style={{ color: "rgba(15, 35, 24, 0.62)" }}
+                  >
+                    {beat.body}
+                  </p>
+                </div>
+              ))}
+            </div>
           </div>
-        </div>
+        </section>
       </main>
 
-      {/* Pulse animation keyframes */}
+      {showPulse ? (
+        <footer
+          className="px-6 py-6 text-center"
+          style={{
+            background: BRAND.forest900,
+            color: "rgba(255,255,255,0.45)",
+          }}
+        >
+          <Link
+            href="/pulse"
+            className="text-sm font-medium no-underline transition-colors hover:text-white"
+            style={{ color: BRAND.forest300 }}
+          >
+            See the AI Skills Pulse
+          </Link>
+        </footer>
+      ) : null}
+
       <style>{`
         @keyframes pulse {
           0%, 100% { opacity: 1; }

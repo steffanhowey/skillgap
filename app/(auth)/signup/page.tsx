@@ -72,9 +72,11 @@ function SignUpForm() {
 
   return (
     <>
-      <h1 className="text-2xl font-semibold text-[var(--sg-shell-900)]">Create your account</h1>
+      <h1 className="text-2xl font-semibold text-[var(--sg-shell-900)]">
+        Start your first mission
+      </h1>
       <p className="mt-2 text-[var(--sg-shell-600)]">
-        We&apos;ll send you a magic link.
+        We&apos;ll email you a magic link. No password.
       </p>
 
       <div className="mt-8 rounded-lg border border-[var(--sg-shell-border)] bg-[var(--sg-shell-100)] p-6">
@@ -151,7 +153,7 @@ function SignUpForm() {
               disabled={!firstName.trim() || !lastName.trim() || !email.trim()}
               className="mt-4"
             >
-              Start Building
+              Send magic link
             </Button>
           </form>
         )}

@@ -295,7 +295,7 @@ export function JoinRoomModal({
   // ─── Computed sprint info ─────────────────────────────────
   const durationSec = freshDuration * 60;
 
-  const buttonLabel = "Join Session";
+  const buttonLabel = resolvedMissionId ? "Start this mission" : "Join Session";
 
   // ─── Handlers ──────────────────────────────────────────────
   const handleMissionSelect = useCallback((missionId: string) => {
@@ -419,12 +419,22 @@ export function JoinRoomModal({
             {/* Divider */}
             <div className="mx-5 mt-4 border-t border-white/[0.06]" />
 
-            {/* ── Fixed-height form body — both steps always mounted ── */}
-            <div className="relative" style={{ height: 168 }}>
+            {/* ── Fixed-height form body ── */}
+            <div
+              className="relative"
+              style={{
+                height:
+                  formStep === 2 && resolvedMissionTitle ? 248 : 168,
+              }}
+            >
 
               {/* ── STEP 1: Mission selection ────────────────── */}
+              {!missionSelectionLocked ? (
               <div
                 className="absolute inset-0 flex flex-col transition-opacity duration-200"
+                hidden={formStep !== 1}
+                inert={formStep !== 1}
+                aria-hidden={formStep !== 1}
                 style={{
                   opacity: formStep === 1 ? 1 : 0,
                   pointerEvents: formStep === 1 ? "auto" : "none",
@@ -515,6 +525,7 @@ export function JoinRoomModal({
                   </Button>
                 </div>
               </div>
+              ) : null}
 
               {/* ── STEP 2: Duration + join ─────────────────── */}
               <div

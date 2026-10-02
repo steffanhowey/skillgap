@@ -755,6 +755,9 @@ describe("skill loop contract", () => {
         body: JSON.stringify({
           item_completed: "item-1",
           time_delta_seconds: 60,
+          item_state: {
+            evaluation: { quality: "nailed_it", score: 90 },
+          },
         }),
       }),
       { params: Promise.resolve({ id: "path-1" }) },

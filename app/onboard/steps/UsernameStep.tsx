@@ -1,6 +1,7 @@
 "use client";
 
 import { Check, X, Loader2 } from "lucide-react";
+import { Button } from "@/components/ui/Button";
 import type { useUsernameValidation } from "@/lib/username";
 
 type UsernameValidation = ReturnType<typeof useUsernameValidation>;
@@ -8,6 +9,7 @@ type UsernameValidation = ReturnType<typeof useUsernameValidation>;
 interface UsernameStepProps {
   username: UsernameValidation;
   saving: boolean;
+  confirmLabel: string;
   onConfirm: () => void;
   onSkip: () => void;
 }
@@ -15,6 +17,7 @@ interface UsernameStepProps {
 export default function UsernameStep({
   username,
   saving,
+  confirmLabel,
   onConfirm,
   onSkip,
 }: UsernameStepProps) {
@@ -45,7 +48,7 @@ export default function UsernameStep({
         Pick a handle
       </h1>
       <p className="mt-2 text-[var(--sg-shell-600)]">
-        This is how others will find you. You can always change it later.
+        Optional for now. You can change it later in settings.
       </p>
 
       <div className="mt-8 rounded-xl border border-[var(--sg-shell-border)] bg-[var(--sg-shell-100)] p-6">
@@ -86,13 +89,16 @@ export default function UsernameStep({
           </p>
         )}
 
-        <button
+        <Button
+          variant="primary"
+          fullWidth
+          className="mt-5"
           onClick={onConfirm}
           disabled={!username.isValid || saving}
-          className="mt-5 inline-flex h-12 w-full items-center justify-center rounded-full bg-[var(--sg-forest-500)] font-medium text-white transition-opacity hover:opacity-85 active:opacity-75 disabled:opacity-50"
+          loading={saving}
         >
-          {saving ? "Saving..." : "Let\u2019s go"}
-        </button>
+          {confirmLabel}
+        </Button>
       </div>
 
       <button

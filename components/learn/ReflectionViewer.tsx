@@ -46,7 +46,7 @@ export function ReflectionViewer({
   variant = "default",
 }: ReflectionViewerProps) {
   const reflection = item.reflection!;
-  const isImmersiveStage = variant === "roomOverlay" || variant === "missionPage";
+  const isImmersiveStage = variant === "roomOverlay";
   const stageVariant = variant === "missionPage" ? "missionPage" : "default";
 
   const [response, setResponse] = useState("");
@@ -75,13 +75,20 @@ export function ReflectionViewer({
           user_response: response,
         }),
       });
-      const data = await res.json();
-      setFeedback(data);
-    } catch {
+      const data = (await res.json()) as {
+        feedback?: string;
+        quality?: string;
+        error?: string;
+      };
+      if (!res.ok || data.quality === "unevaluated") {
+        return;
+      }
       setFeedback({
-        feedback: "Thanks for reflecting! Your thoughts have been saved.",
-        quality: "good",
+        feedback: data.feedback ?? "",
+        quality: data.quality as "strong" | "good" | "needs_work",
       });
+    } catch {
+      return;
     } finally {
       setLoading(false);
     }

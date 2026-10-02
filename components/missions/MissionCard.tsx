@@ -8,8 +8,10 @@ import {
 } from "lucide-react";
 import { Button } from "@/components/ui/Button";
 import { getMissionRoute } from "@/lib/appRoutes";
+import { getLaunchMissionContent } from "@/lib/launchMissionContent";
 import {
   getMissionCardSupportLine,
+  getMissionPlayerTitle,
   getMissionPrimaryArea,
   getMissionProgressSummary,
   getMissionRepSummary,
@@ -195,13 +197,28 @@ export function MissionCard({
         <div className="px-1 pt-2">
           <div className="space-y-0.5">
             <h3 className={`${compact ? "line-clamp-1" : "line-clamp-2"} text-sm font-semibold leading-snug text-shell-900`}>
-              {path.title}
+              {getMissionPlayerTitle(path)}
             </h3>
 
             {supportLine ? (
               <p className="mt-0.5 line-clamp-1 text-xs text-shell-500">
                 {supportLine}
               </p>
+            ) : null}
+
+            {path.skill_tags &&
+            path.skill_tags.length > 0 &&
+            !getLaunchMissionContent(path)?.playerTitle ? (
+              <div className="mt-2 flex flex-wrap gap-1.5">
+                {path.skill_tags.slice(0, 3).map((tag) => (
+                  <span
+                    key={tag.skill_slug}
+                    className="rounded-full border border-[var(--sg-shell-border)] px-2 py-0.5 text-[11px] text-[var(--sg-shell-500)]"
+                  >
+                    {tag.skill_name}
+                  </span>
+                ))}
+              </div>
             ) : null}
           </div>
 

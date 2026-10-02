@@ -23,7 +23,7 @@ export interface SkillRecommendation {
     domain_name: string;
     domain_slug?: string;
   };
-  reason: "continue_momentum" | "level_up" | "function_gap" | "domain_expansion" | "market_demand";
+  reason: "continue_momentum" | "level_up" | "function_gap" | "domain_expansion" | "editorial_sequence" | "market_demand";
   reason_text: string;
   priority: number;
   paths: LearningPath[];

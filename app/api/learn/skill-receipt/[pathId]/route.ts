@@ -10,6 +10,8 @@
 import { NextResponse } from "next/server";
 import { createClient as createAdminClient } from "@/lib/supabase/admin";
 import { createClient } from "@/lib/supabase/server";
+import { seedLaunchSkillTagsForPath } from "@/lib/launchSkillTags";
+import { calculateSkillReceipt } from "@/lib/skills/receiptCalculator";
 import { getSkillsWithDomains } from "@/lib/skills/taxonomy";
 import { assessFluencyLevel } from "@/lib/skills/assessment";
 import type { SkillReceiptEntry, UserSkill, SkillFluency } from "@/lib/types/skills";
@@ -48,7 +50,7 @@ export async function GET(
   // Fallback: reconstruct from current state (approximate before/after)
   const { data: progressRow } = await admin
     .from("fp_learning_progress")
-    .select("completed_at, path_id")
+    .select("completed_at, path_id, item_states")
     .eq("user_id", user.id)
     .eq("path_id", pathId)
     .eq("status", "completed")
@@ -60,7 +62,7 @@ export async function GET(
 
   const { data: pathRow } = await admin
     .from("fp_learning_paths")
-    .select("id, title")
+    .select("id, title, items")
     .eq("id", pathId)
     .single();
 
@@ -68,17 +70,30 @@ export async function GET(
     return NextResponse.json({ error: "Path not found" }, { status: 404 });
   }
 
-  const { data: tagRows } = await admin
-    .from("fp_skill_tags")
-    .select("skill_id, relevance")
-    .eq("path_id", pathId);
+  let tagRows =
+    (
+      await admin
+        .from("fp_skill_tags")
+        .select("skill_id, relevance")
+        .eq("path_id", pathId)
+    ).data ?? [];
 
-  if (!tagRows?.length) {
-    return NextResponse.json({ skill_receipt: null });
+  if (tagRows.length === 0) {
+    const seeded = await seedLaunchSkillTagsForPath(pathId);
+    if (seeded > 0) {
+      tagRows =
+        (
+          await admin
+            .from("fp_skill_tags")
+            .select("skill_id, relevance")
+            .eq("path_id", pathId)
+        ).data ?? [];
+    }
   }
 
-  const allSkills = await getSkillsWithDomains();
-  const skillMap = new Map(allSkills.map((s) => [s.id, s]));
+  if (tagRows.length === 0) {
+    return NextResponse.json({ skill_receipt: null });
+  }
 
   const skillIds = tagRows.map((t) => t.skill_id);
   const { data: userSkills } = await admin
@@ -86,6 +101,36 @@ export async function GET(
     .select("*")
     .eq("user_id", user.id)
     .in("skill_id", skillIds);
+
+  if (!userSkills?.length) {
+    const calculated = await calculateSkillReceipt({
+      userId: user.id,
+      pathId,
+      pathTitle: pathRow.title as string,
+      completedAt: progressRow.completed_at as string,
+      itemStates: (progressRow.item_states ?? {}) as Record<
+        string,
+        { completed?: boolean; evaluation?: Record<string, unknown> }
+      >,
+      pathItems: (pathRow.items ?? []) as Array<{
+        item_id?: string;
+        task_type?: string;
+        mission?: { objective?: string };
+      }>,
+    });
+
+    if (calculated) {
+      await admin
+        .from("fp_achievements")
+        .update({ skill_receipt: calculated })
+        .eq("user_id", user.id)
+        .eq("path_id", pathId);
+      return NextResponse.json({ skill_receipt: calculated });
+    }
+  }
+
+  const allSkills = await getSkillsWithDomains();
+  const skillMap = new Map(allSkills.map((s) => [s.id, s]));
 
   const userSkillMap = new Map(
     (userSkills ?? []).map((s: UserSkill) => [s.skill_id, s]),

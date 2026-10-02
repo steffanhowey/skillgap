@@ -5,14 +5,18 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { ChevronDown } from "lucide-react";
 import { Card } from "@/components/ui/Card";
+import { Input } from "@/components/ui/Input";
 import { LaunchpadHero } from "@/components/home/LaunchpadHero";
 import { PathCardSkeleton } from "@/components/learn/PathCardSkeleton";
 import { useLearnSearch } from "@/lib/useLearnSearch";
 import { useLaunchCatalog } from "@/lib/useLaunchCatalog";
 import { useSkillProfile } from "@/lib/useSkillProfile";
 import {
+  getMissionRoute,
   MISSIONS_ROUTE,
 } from "@/lib/appRoutes";
+import { useProfile } from "@/lib/useProfile";
+import { Button } from "@/components/ui/Button";
 import { MissionCard } from "@/components/missions/MissionCard";
 import { MissionBriefModal } from "@/components/missions/MissionBriefModal";
 import { buildHomePrimaryAction } from "@/lib/homeLaunchpad";
@@ -32,6 +36,12 @@ import {
   getLaunchMissionLaneKey,
   isApprovedLaunchMissionLaneKey,
 } from "@/lib/launchMissionContent";
+import {
+  filterLaunchCatalogPaths,
+  intersectWithLaunchCatalog,
+  pathMatchesLaunchCatalogQuery,
+} from "@/lib/launchCatalogVisibility";
+import { isFirstSessionHome } from "@/lib/firstSession";
 
 interface CategoryDef {
   value: string;
@@ -60,33 +70,8 @@ function pathMatchesCategory(
   return getMissionLaunchDomain(path).key === categoryValue;
 }
 
-type SortOption =
-  | "recommended"
-  | "newest"
-  | "popular"
-  | "shortest"
-  | "longest"
-  | "beginner-first"
-  | "advanced-first";
-
-const SORT_OPTIONS: { value: SortOption; label: string }[] = [
-  { value: "recommended", label: "Recommended" },
-  { value: "newest", label: "Newest" },
-  { value: "popular", label: "Popular" },
-  { value: "shortest", label: "Shortest" },
-  { value: "longest", label: "Longest" },
-  { value: "beginner-first", label: "Beginner First" },
-  { value: "advanced-first", label: "Advanced First" },
-];
-
 const DISCOVERY_SELECT_CLASS_NAME =
   "cursor-pointer appearance-none rounded-full border border-shell-border bg-shell-50 px-4 py-2 pr-8 text-sm text-shell-600 transition-colors hover:border-forest-400 focus:border-forest-400 focus:outline-none";
-
-const DIFFICULTY_ORDER: Record<string, number> = {
-  beginner: 0,
-  intermediate: 1,
-  advanced: 2,
-};
 
 export function MissionsPage() {
   const router = useRouter();
@@ -94,14 +79,13 @@ export function MissionsPage() {
   const {
     query,
     setQuery,
-    discoveryPaths,
     inProgressPaths,
-    isLoading,
     searchResults,
-    isSearching,
     error,
+    isLoading: progressLoading,
   } = useLearnSearch();
-  const { achievements } = useSkillProfile();
+  const { achievements, isLoading: profileLoading } = useSkillProfile();
+  const { profile } = useProfile();
   const { paths: launchCatalogPaths, isLoading: launchCatalogLoading } =
     useLaunchCatalog();
   const activeMission = inProgressPaths[0] ?? null;
@@ -114,13 +98,12 @@ export function MissionsPage() {
     });
 
   const [category, setCategory] = useState("all");
-  const [sort, setSort] = useState<SortOption>("recommended");
   const [selectedMissionBrief, setSelectedMissionBrief] =
     useState<MissionBriefSelection | null>(null);
 
   useEffect(() => {
-    const initialQuery = searchParams.get("q")?.trim();
-    if (!initialQuery || initialQuery === query) return;
+    const initialQuery = searchParams.get("q")?.trim() ?? "";
+    if (initialQuery === query) return;
 
     const timeoutId = window.setTimeout(() => {
       setQuery(initialQuery);
@@ -159,14 +142,14 @@ export function MissionsPage() {
     [inProgressPaths, launchCatalogPaths],
   );
 
-  const allPaths = useMemo(() => {
-    const inProgressIds = new Set(inProgressPaths.map(({ path }) => path.id));
-    const activePaths = inProgressPaths.map(({ path }) => path);
-    const otherPaths = discoveryPaths.filter(
-      (path) => !inProgressIds.has(path.id),
-    );
-    return [...activePaths, ...otherPaths];
-  }, [discoveryPaths, inProgressPaths]);
+  const allPaths = useMemo(
+    () =>
+      filterLaunchCatalogPaths([
+        ...inProgressPaths.map(({ path }) => path),
+        ...launchCatalogPaths,
+      ]),
+    [inProgressPaths, launchCatalogPaths],
+  );
 
   const fallbackMissionRecommendations = useMemo(() => {
     const availableFallbackPaths = launchCatalogPaths.filter((path) => {
@@ -212,32 +195,63 @@ export function MissionsPage() {
         activeMission,
         recommendations,
         fallbackRecommendations: fallbackMissionRecommendations,
+        recommendedFirstPathId: profile?.recommended_first_path_id ?? null,
+        completedPathIds,
+        knownPaths: launchCatalogPaths,
       }),
-    [activeMission, fallbackMissionRecommendations, recommendations],
+    [
+      activeMission,
+      completedPathIds,
+      fallbackMissionRecommendations,
+      launchCatalogPaths,
+      profile?.recommended_first_path_id,
+      recommendations,
+    ],
   );
   const isInitialMissionLoad =
     !query.trim() &&
-    isLoading &&
-    discoveryPaths.length === 0 &&
-    inProgressPaths.length === 0;
+    launchCatalogLoading &&
+    launchCatalogPaths.length === 0;
   const heroIsLoading =
     isInitialMissionLoad ||
     (!activeMission &&
       (launchCatalogLoading || recommendationsLoading) &&
       recommendations.length === 0 &&
       fallbackMissionRecommendations.length === 0);
+  const sessionKnown = !progressLoading && !profileLoading;
+  const firstSession =
+    sessionKnown &&
+    isFirstSessionHome({
+      achievementCount: achievements.length,
+      inProgressCount: inProgressPaths.length,
+    });
 
   const searchMode = query.trim().length > 0;
-  const filteredSearchResults = useMemo(
-    () =>
-      searchResults.filter((path) => {
-        const progress = progressMap.get(path.id);
-        return (
-          progress?.status !== "completed" && !completedPathIds.has(path.id)
-        );
-      }),
-    [completedPathIds, progressMap, searchResults],
-  );
+  const showCampus = sessionKnown ? !firstSession || searchMode : false;
+  const filteredSearchResults = useMemo(() => {
+    const isAvailable = (path: LearningPath): boolean => {
+      const progress = progressMap.get(path.id);
+      return progress?.status !== "completed" && !completedPathIds.has(path.id);
+    };
+
+    const catalogMatches = launchCatalogPaths.filter(
+      (path) =>
+        isAvailable(path) && pathMatchesLaunchCatalogQuery(path, query),
+    );
+    const catalogIds = new Set(catalogMatches.map((path) => path.id));
+    const apiMatches = intersectWithLaunchCatalog(
+      searchResults,
+      launchCatalogPaths,
+    ).filter((path) => isAvailable(path) && !catalogIds.has(path.id));
+
+    return [...catalogMatches, ...apiMatches];
+  }, [
+    completedPathIds,
+    launchCatalogPaths,
+    progressMap,
+    query,
+    searchResults,
+  ]);
   const visibleSearchResults = filteredSearchResults.slice(0, 4);
   const hiddenSearchResultCount = Math.max(
     filteredSearchResults.length - visibleSearchResults.length,
@@ -279,53 +293,29 @@ export function MissionsPage() {
       ),
     [completedLaunchLaneKeys, completedPathIds, launchCatalogPool],
   );
-  const sortedDiscoveryPaths = useMemo(() => {
+  const visibleDiscoveryPaths = useMemo(() => {
     const curatedIds = new Set(
-      !query.trim()
+      !query.trim() && category === "all"
         ? [
             ...launchFrontDoor.corePaths.map((path) => path.id),
             ...launchFrontDoor.extendedPaths.map((path) => path.id),
           ]
         : [],
     );
-    const paths = [...filteredDiscoveryPaths].filter((path) => !curatedIds.has(path.id));
 
-    switch (sort) {
-      case "newest":
-        return paths.sort(
-          (a, b) =>
-            new Date(b.created_at).getTime() - new Date(a.created_at).getTime(),
-        );
-      case "popular":
-        return paths.sort(
-          (a, b) => (b.start_count ?? 0) - (a.start_count ?? 0),
-        );
-      case "shortest":
-        return paths.sort(
-          (a, b) => a.estimated_duration_seconds - b.estimated_duration_seconds,
-        );
-      case "longest":
-        return paths.sort(
-          (a, b) => b.estimated_duration_seconds - a.estimated_duration_seconds,
-        );
-      case "beginner-first":
-        return paths.sort(
-          (a, b) =>
-            (DIFFICULTY_ORDER[a.difficulty_level] ?? 1) -
-            (DIFFICULTY_ORDER[b.difficulty_level] ?? 1),
-        );
-      case "advanced-first":
-        return paths.sort(
-          (a, b) =>
-            (DIFFICULTY_ORDER[b.difficulty_level] ?? 1) -
-            (DIFFICULTY_ORDER[a.difficulty_level] ?? 1),
-        );
-      case "recommended":
-      default:
-        return paths;
-    }
-  }, [filteredDiscoveryPaths, launchFrontDoor.corePaths, launchFrontDoor.extendedPaths, query, sort]);
-  const visibleDiscoveryPaths = sortedDiscoveryPaths;
+    return filteredDiscoveryPaths.filter((path) => !curatedIds.has(path.id));
+  }, [
+    category,
+    filteredDiscoveryPaths,
+    launchFrontDoor.corePaths,
+    launchFrontDoor.extendedPaths,
+    query,
+  ]);
+  const showBrowseSection =
+    searchMode ||
+    isInitialMissionLoad ||
+    category !== "all" ||
+    visibleDiscoveryPaths.length > 0;
   const openMissionBrief = useCallback(
     (path: LearningPath, progress: LearningProgress | null = null) => {
       setSelectedMissionBrief({ path, progress });
@@ -335,13 +325,42 @@ export function MissionsPage() {
   const handleOpenPrimaryAction = useCallback(() => {
     const heroMission = primaryAction.mission;
 
+    if (heroMission && primaryAction.isFirstMission) {
+      router.push(getMissionRoute(heroMission.id));
+      return;
+    }
+
     if (heroMission) {
       openMissionBrief(heroMission, primaryAction.progress ?? null);
       return;
     }
 
     router.push(MISSIONS_ROUTE);
-  }, [openMissionBrief, primaryAction.mission, primaryAction.progress, router]);
+  }, [
+    openMissionBrief,
+    primaryAction.isFirstMission,
+    primaryAction.mission,
+    primaryAction.progress,
+    router,
+  ]);
+
+  const clearSearch = useCallback(() => {
+    setQuery("");
+    router.replace(MISSIONS_ROUTE);
+  }, [router, setQuery]);
+
+  const handleCatalogSearchChange = useCallback(
+    (value: string) => {
+      setQuery(value);
+      const trimmed = value.trim();
+      router.replace(
+        trimmed
+          ? `${MISSIONS_ROUTE}?q=${encodeURIComponent(trimmed)}`
+          : MISSIONS_ROUTE,
+      );
+    },
+    [router, setQuery],
+  );
 
   return (
     <div className="space-y-6">
@@ -354,8 +373,31 @@ export function MissionsPage() {
 
       {error && <p className="text-sm text-sg-coral-500">{error}</p>}
 
+      {showCampus ? (
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+        <Input
+          type="search"
+          value={query}
+          onChange={(event) => handleCatalogSearchChange(event.target.value)}
+          placeholder="Search missions"
+          aria-label="Search missions"
+          className="w-full sm:max-w-sm"
+        />
+        {!searchMode ? (
+          <CategoryFilter
+            value={category}
+            options={visibleCategories}
+            onChange={setCategory}
+          />
+        ) : null}
+      </div>
+      ) : null}
+
+      {showCampus ? (
       <div className="space-y-6">
-        {!searchMode && launchFrontDoor.corePaths.length > 0 ? (
+        {!searchMode &&
+        category === "all" &&
+        launchFrontDoor.corePaths.length > 0 ? (
           <LaunchFrontDoorSection
             corePaths={launchFrontDoor.corePaths}
             extendedPaths={launchFrontDoor.extendedPaths}
@@ -382,12 +424,7 @@ export function MissionsPage() {
           </section>
         )}
 
-        {(searchMode ||
-          isInitialMissionLoad ||
-          isLoading ||
-          visibleDiscoveryPaths.length > 0 ||
-          category === "in-progress" ||
-          category !== "all") && (
+        {showBrowseSection && (
         <section>
           {isInitialMissionLoad ? (
             <>
@@ -400,57 +437,13 @@ export function MissionsPage() {
                 title={searchMode ? "Mission Matches" : "Browse Missions"}
                 description={
                   searchMode
-                    ? "Search stays focused on missions you can actually do next."
-                    : "Browse by launch domain when you want to explore the right work for now."
-                }
-                actions={
-                  !searchMode ? (
-                    <div className="flex items-center gap-2">
-                      <div className="relative">
-                        <select
-                          value={category}
-                          onChange={(event) => setCategory(event.target.value)}
-                          className={DISCOVERY_SELECT_CLASS_NAME}
-                        >
-                          {visibleCategories.map((option) => (
-                            <option key={option.value} value={option.value}>
-                              {option.label}
-                            </option>
-                          ))}
-                        </select>
-                        <ChevronDown
-                          size={14}
-                          strokeWidth={1.5}
-                          className="pointer-events-none absolute right-2.5 top-1/2 -translate-y-1/2 text-shell-500"
-                        />
-                      </div>
-                      <div className="relative">
-                        <select
-                          value={sort}
-                          onChange={(event) =>
-                            setSort(event.target.value as SortOption)
-                          }
-                          className={DISCOVERY_SELECT_CLASS_NAME}
-                        >
-                          {SORT_OPTIONS.map((option) => (
-                            <option key={option.value} value={option.value}>
-                              {option.label}
-                            </option>
-                          ))}
-                        </select>
-                        <ChevronDown
-                          size={14}
-                          strokeWidth={1.5}
-                          className="pointer-events-none absolute right-2.5 top-1/2 -translate-y-1/2 text-shell-500"
-                        />
-                      </div>
-                    </div>
-                  ) : undefined
+                    ? "Missions that match what you typed."
+                    : "More missions when you want a different brief."
                 }
               />
 
               {searchMode ? (
-            isSearching && visibleSearchResults.length === 0 ? (
+            launchCatalogLoading && visibleSearchResults.length === 0 ? (
               <MissionCardSkeletonGrid count={2} />
             ) : visibleSearchResults.length > 0 ? (
               <>
@@ -476,10 +469,15 @@ export function MissionsPage() {
             ) : (
             <EmptySectionState
               title="No matching missions yet"
-              description="Try a different workflow query to surface a better mission match."
+              description="Clear the search to see missions again."
+              action={
+                <Button variant="secondary" size="sm" onClick={clearSearch}>
+                  Clear search
+                </Button>
+              }
             />
           )
-          ) : isLoading ? (
+          ) : launchCatalogLoading ? (
             <MissionCardSkeletonGrid count={activeMission ? 2 : 3} />
           ) : visibleDiscoveryPaths.length > 0 ? (
             <div className="grid gap-5 sm:grid-cols-2 lg:grid-cols-3">
@@ -501,13 +499,13 @@ export function MissionsPage() {
             />
           ) : category !== "all" ? (
             <EmptySectionState
-              title="No missions found in this launch domain yet"
-              description="Try another launch domain to find a better next mission."
+              title="No missions found in this category yet"
+              description="Try another category to find a better next mission."
             />
           ) : (
             <EmptySectionState
-              title="No new missions surfaced yet"
-              description="Check another launch domain to surface more missions."
+              title="Those missions are already above"
+              description="Start one of the missions above, or filter by category."
             />
           )}
             </>
@@ -515,6 +513,7 @@ export function MissionsPage() {
         </section>
         )}
       </div>
+      ) : null}
 
       {selectedMissionBrief ? (
         <MissionBriefModal
@@ -555,7 +554,7 @@ function LaunchFrontDoorSection({
         <div className="space-y-5">
           <div className="space-y-2">
             <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-shell-500">
-              Launch Path
+              Start here
             </p>
             <h2 className="text-2xl font-semibold leading-tight text-shell-900">
               Go from better AI thinking to better marketing output to better workflow design.
@@ -590,8 +589,8 @@ function LaunchFrontDoorSection({
 
       <section>
         <SectionHeader
-          title="Core launch path"
-          description="Start here. These three missions are intentionally sequenced to sharpen how marketers think, write, and design workflows with AI."
+          title="The first three missions"
+          description="Start here. These three missions are sequenced to sharpen how marketers think, write, and design workflows with AI."
         />
         <div className="grid gap-5 lg:grid-cols-3">
           {corePaths.map((path) => {
@@ -628,7 +627,7 @@ function LaunchFrontDoorSection({
         <section>
           <SectionHeader
             title="Optional depth"
-            description="Go deeper when you want narrower or more technical reps. These strengthen the launch story, but they are not the front-door path."
+            description="Go deeper when you want a narrower or more technical mission. These strengthen the story, but they are not the first three."
           />
           <div className="grid gap-5 sm:grid-cols-2">
             {extendedPaths.map((path) => (
@@ -645,6 +644,38 @@ function LaunchFrontDoorSection({
         </section>
       ) : null}
     </section>
+  );
+}
+
+function CategoryFilter({
+  value,
+  options,
+  onChange,
+}: {
+  value: string;
+  options: CategoryDef[];
+  onChange: (value: string) => void;
+}) {
+  return (
+    <div className="relative shrink-0">
+      <select
+        value={value}
+        onChange={(event) => onChange(event.target.value)}
+        aria-label="Filter missions"
+        className={DISCOVERY_SELECT_CLASS_NAME}
+      >
+        {options.map((option) => (
+          <option key={option.value} value={option.value}>
+            {option.label}
+          </option>
+        ))}
+      </select>
+      <ChevronDown
+        size={14}
+        strokeWidth={1.5}
+        className="pointer-events-none absolute right-2.5 top-1/2 -translate-y-1/2 text-shell-500"
+      />
+    </div>
   );
 }
 
@@ -686,15 +717,20 @@ function SectionHeader({
 function EmptySectionState({
   title,
   description,
+  action,
 }: {
   title: string;
   description: string;
+  action?: ReactNode;
 }) {
   return (
     <Card className="p-5">
-      <div className="space-y-2">
-        <h3 className="text-lg font-semibold text-shell-900">{title}</h3>
-        <p className="text-sm leading-6 text-shell-500">{description}</p>
+      <div className="space-y-3">
+        <div className="space-y-2">
+          <h3 className="text-lg font-semibold text-shell-900">{title}</h3>
+          <p className="text-sm leading-6 text-shell-500">{description}</p>
+        </div>
+        {action}
       </div>
     </Card>
   );

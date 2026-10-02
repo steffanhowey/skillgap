@@ -16,8 +16,25 @@ interface UseActiveMissionsReturn {
 let cachedActiveMissions: ActiveMissionEntry[] | null = null;
 let activeMissionsRequest: Promise<ActiveMissionEntry[]> | null = null;
 
-async function loadActiveMissions(): Promise<ActiveMissionEntry[]> {
-  if (cachedActiveMissions) {
+/**
+ * Keep only missions the API still reports as in progress.
+ */
+export function selectActiveMissions(
+  missions: ActiveMissionEntry[],
+): ActiveMissionEntry[] {
+  return missions.filter((mission) => mission.progress.status === "in_progress");
+}
+
+/**
+ * Drop the module cache so the next load hits the network.
+ */
+export function invalidateActiveMissionsCache(): void {
+  cachedActiveMissions = null;
+  activeMissionsRequest = null;
+}
+
+async function loadActiveMissions(force = false): Promise<ActiveMissionEntry[]> {
+  if (!force && cachedActiveMissions) {
     return cachedActiveMissions;
   }
 
@@ -25,11 +42,16 @@ async function loadActiveMissions(): Promise<ActiveMissionEntry[]> {
     activeMissionsRequest = fetch("/api/learn/search")
       .then((response) => (response.ok ? response.json() : { in_progress: [] }))
       .then((data) => {
-        const missions = (data.in_progress ?? []) as ActiveMissionEntry[];
+        const missions = selectActiveMissions(
+          (data.in_progress ?? []) as ActiveMissionEntry[],
+        );
         cachedActiveMissions = missions;
         return missions;
       })
-      .catch(() => [])
+      .catch(() => {
+        cachedActiveMissions = cachedActiveMissions ?? [];
+        return cachedActiveMissions;
+      })
       .finally(() => {
         activeMissionsRequest = null;
       });
@@ -39,9 +61,8 @@ async function loadActiveMissions(): Promise<ActiveMissionEntry[]> {
 }
 
 /**
- * Lightweight mission source for room-entry flows.
- * Reuses the existing learn search endpoint and reads only the user's
- * in-progress missions.
+ * Lightweight mission source for room-entry and profile focus.
+ * Reuses the learn search endpoint and revalidates on every mount.
  */
 export function useActiveMissions(enabled = true): UseActiveMissionsReturn {
   const [missions, setMissions] = useState<ActiveMissionEntry[]>(
@@ -50,11 +71,11 @@ export function useActiveMissions(enabled = true): UseActiveMissionsReturn {
   const [hasLoaded, setHasLoaded] = useState(() => cachedActiveMissions !== null);
 
   useEffect(() => {
-    if (!enabled || hasLoaded) return;
+    if (!enabled) return;
 
     let cancelled = false;
 
-    loadActiveMissions()
+    loadActiveMissions(true)
       .then((loadedMissions) => {
         if (cancelled) return;
         setMissions(loadedMissions);
@@ -69,7 +90,7 @@ export function useActiveMissions(enabled = true): UseActiveMissionsReturn {
     return () => {
       cancelled = true;
     };
-  }, [enabled, hasLoaded]);
+  }, [enabled]);
 
   return {
     missions: enabled ? missions : [],

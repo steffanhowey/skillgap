@@ -22,6 +22,7 @@ interface MissionCompletionSummaryProps {
   progress: LearningProgress | null;
   achievement: AchievementSummary | null;
   skillReceipt: SkillReceiptType | null;
+  skillReceiptReady?: boolean;
   artifactExpectation: string;
   recommendedPaths: LearningPath[];
   recommendationsLoading?: boolean;
@@ -71,6 +72,7 @@ export function MissionCompletionSummary({
   progress,
   achievement,
   skillReceipt,
+  skillReceiptReady = false,
   artifactExpectation,
   recommendedPaths,
   recommendationsLoading = false,
@@ -159,7 +161,7 @@ export function MissionCompletionSummary({
             showFirstReceiptNote={false}
             className="max-w-none"
           />
-        ) : (
+        ) : !skillReceiptReady ? (
           <Card className="p-4">
             <div className="space-y-2">
               <p className="text-sm font-semibold text-shell-900">
@@ -167,6 +169,17 @@ export function MissionCompletionSummary({
               </p>
               <p className="text-sm leading-6 text-shell-500">
                 We&apos;re finalizing what this mission strengthened so it shows up cleanly in your progress record.
+              </p>
+            </div>
+          </Card>
+        ) : (
+          <Card className="p-4">
+            <div className="space-y-2">
+              <p className="text-sm font-semibold text-shell-900">
+                Mission complete
+              </p>
+              <p className="text-sm leading-6 text-shell-500">
+                This mission is captured as evidence. A capability snapshot wasn&apos;t available for this path.
               </p>
             </div>
           </Card>

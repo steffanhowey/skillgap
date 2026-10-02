@@ -99,7 +99,7 @@ describe("buildMissionRecommendations", () => {
           action: null,
         },
         {
-          reason: "market_demand",
+          reason: "editorial_sequence",
           priority: 50,
           paths: [gapPath],
           action: null,
@@ -143,7 +143,7 @@ describe("buildMissionRecommendations", () => {
     const recommendations = buildMissionRecommendations(
       [
         {
-          reason: "market_demand",
+          reason: "editorial_sequence",
           priority: 75,
           paths: [nextPath],
           action: null,
@@ -190,7 +190,7 @@ describe("buildMissionRecommendations", () => {
     const recommendations = buildMissionRecommendations(
       [
         {
-          reason: "market_demand",
+          reason: "editorial_sequence",
           priority: 80,
           paths: [nextPath],
           action: null,

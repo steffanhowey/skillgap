@@ -58,13 +58,13 @@ export function CurrentFocusPanel({
   const primaryLabel = isActiveMission
     ? "Active mission"
     : primaryAction.kind === "next"
-      ? "Next rep"
+      ? "Next mission"
       : "Current focus";
   const primaryButtonLabel = isActiveMission
-    ? "Resume Mission"
+    ? "Continue this mission"
     : primaryAction.kind === "next"
-      ? "Start Next Rep"
-      : "Browse Missions";
+      ? "Start this mission"
+      : "See missions";
   const primarySummary =
     primaryMission && primaryAction.progress
       ? getMissionProgressSummary(primaryAction.progress)

@@ -61,6 +61,9 @@ describe("missionCatalogRecommendations", () => {
       "prompt-messaging",
       "claude-research",
     ]);
+    expect(recommendations.every((recommendation) => recommendation.reason === "editorial_sequence")).toBe(
+      true,
+    );
   });
 
   it("returns no recommendation when the next required launch lane is unpublished", () => {

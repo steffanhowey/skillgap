@@ -1,11 +1,6 @@
 "use client";
 
 import Link from "next/link";
-import Image from "next/image";
-
-const LOGO_DARK_MODE = "/logo/skillgap_light.png";
-const LOGO_MARK = "/logo/focusparty_logo_mark.png";
-const LOGO_LIGHT_MODE = "/logo/Group%2040.png";
 
 /** Nav logo height in pixels. */
 const NAV_LOGO_HEIGHT = 28;
@@ -19,33 +14,37 @@ interface LogoProps {
   maxWidth?: number;
 }
 
+/**
+ * Brand wordmark. Public logo PNGs are not provisioned, so this renders
+ * the SkillGap.ai mark from the brand kit instead of a missing image.
+ */
 export function Logo({
   height,
   href = "/",
   variant = "dark",
-  maxWidth = 120,
+  maxWidth = 140,
 }: LogoProps) {
-  const src =
-    variant === "light"
-      ? LOGO_LIGHT_MODE
-      : variant === "small"
-        ? LOGO_MARK
-        : LOGO_DARK_MODE;
-  const resolvedHeight = height ?? NAV_LOGO_HEIGHT;
-  const resolvedMaxWidth = variant === "small" ? 28 : maxWidth;
+  const resolvedHeight = height ?? (variant === "small" ? 24 : NAV_LOGO_HEIGHT);
+  const fontSize = Math.max(15, Math.round(resolvedHeight * 0.78));
+  const isLight = variant === "light";
 
-  const image = (
+  const wordmark = (
     <span
-      className="relative block shrink-0"
-      style={{ height: resolvedHeight, width: resolvedMaxWidth }}
+      className={`inline-flex items-baseline font-bold tracking-tight ${
+        isLight ? "text-white" : "text-[var(--sg-shell-900)]"
+      }`}
+      style={{ height: resolvedHeight, maxWidth, fontSize }}
     >
-      <Image
-        src={src}
-        alt="SkillGap"
-        fill
-        className={`object-contain ${variant === "small" ? "object-center" : "object-left"}`}
-        sizes={`(max-width: 240px) 120px, ${resolvedMaxWidth}px`}
-      />
+      SkillGap
+      <span
+        className={
+          isLight
+            ? "text-[var(--sg-forest-300)]"
+            : "text-[var(--sg-forest-500)]"
+        }
+      >
+        .ai
+      </span>
     </span>
   );
 
@@ -56,9 +55,10 @@ export function Logo({
         className="inline-flex items-center"
         aria-label="SkillGap Home"
       >
-        {image}
+        {wordmark}
       </Link>
     );
   }
-  return image;
+
+  return wordmark;
 }

@@ -5,6 +5,9 @@ import { NextResponse } from "next/server";
 import OpenAI from "openai";
 import { SAFETY_PROMPT } from "@/lib/breaks/contentSafety";
 import { EvaluateSchema, parseBody } from "@/lib/learn/validation";
+import { createClient as createServerClient } from "@/lib/supabase/server";
+import { createClient as createAdminClient } from "@/lib/supabase/admin";
+import { allowEvaluateRequest } from "@/lib/learn/evaluateRateLimit";
 
 let _openai: OpenAI | null = null;
 function getClient(): OpenAI {
@@ -38,10 +41,9 @@ Rules:
 
 ${SAFETY_PROMPT}`;
 
-const DEFAULT_RESPONSE = {
-  feedback:
-    "Thanks for giving this a shot! Review the material and try again when you're ready.",
-  quality: "good" as const,
+const UNEVALUATED_RESPONSE = {
+  error: "Evaluation unavailable",
+  quality: "unevaluated" as const,
 };
 
 /** JSON schema for standard practice feedback */
@@ -139,6 +141,52 @@ const QUICK_CHECK_SCHEMA = {
  */
 export async function POST(request: Request): Promise<NextResponse> {
   try {
+    const supabase = await createServerClient();
+    const {
+      data: { user },
+    } = await supabase.auth.getUser();
+
+    if (!user) {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    }
+
+    const withinMemoryLimit = allowEvaluateRequest(user.id);
+    if (!withinMemoryLimit) {
+      return NextResponse.json(
+        { error: "Rate limit exceeded", quality: "unevaluated" },
+        { status: 429 },
+      );
+    }
+
+    try {
+      const hourAgo = new Date(Date.now() - 60 * 60 * 1000).toISOString();
+      const admin = createAdminClient();
+      const { count } = await admin
+        .from("fp_product_events")
+        .select("*", { count: "exact", head: true })
+        .eq("user_id", user.id)
+        .eq("event", "evaluate_requested")
+        .gte("created_at", hourAgo);
+
+      if ((count ?? 0) >= 30) {
+        return NextResponse.json(
+          { error: "Rate limit exceeded", quality: "unevaluated" },
+          { status: 429 },
+        );
+      }
+
+      await admin.from("fp_product_events").insert({
+        user_id: user.id,
+        event: "evaluate_requested",
+        properties: {},
+      });
+    } catch (rateLimitError) {
+      console.warn(
+        "[learn/evaluate] product events unavailable, using in-memory limit:",
+        rateLimitError,
+      );
+    }
+
     const raw = await request.json();
     const parsed = parseBody(EvaluateSchema, raw);
     if (!parsed.success) {
@@ -204,12 +252,14 @@ export async function POST(request: Request): Promise<NextResponse> {
     });
 
     const text = response.choices[0]?.message?.content;
-    if (!text) return NextResponse.json(DEFAULT_RESPONSE);
+    if (!text) {
+      return NextResponse.json(UNEVALUATED_RESPONSE, { status: 503 });
+    }
 
     const result = JSON.parse(text);
     return NextResponse.json(result);
   } catch (error) {
     console.error("[learn/evaluate] Evaluation failed:", error);
-    return NextResponse.json(DEFAULT_RESPONSE);
+    return NextResponse.json(UNEVALUATED_RESPONSE, { status: 503 });
   }
 }

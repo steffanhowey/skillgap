@@ -6,6 +6,7 @@ import {
   getLaunchMissionLaneKey,
   type LaunchMissionLaneKey,
 } from "@/lib/launchMissionContent";
+import { loadSkillTagsForPaths } from "@/lib/skills/pathSkillTags";
 import type { LearningPath } from "@/lib/types";
 
 /** Load the currently published launch catalog from canonical mission projections. */
@@ -34,7 +35,14 @@ export async function listPublishedLaunchCatalogPaths(): Promise<LearningPath[]>
     latestByLane.set(laneKey, path);
   }
 
-  return APPROVED_LAUNCH_ORDER.map((laneKey) => latestByLane.get(laneKey)).filter(
-    (path): path is LearningPath => Boolean(path),
-  );
+  const catalog = APPROVED_LAUNCH_ORDER.map((laneKey) =>
+    latestByLane.get(laneKey),
+  ).filter((path): path is LearningPath => Boolean(path));
+
+  const tagMap = await loadSkillTagsForPaths(catalog.map((path) => path.id));
+  for (const path of catalog) {
+    path.skill_tags = tagMap.get(path.id) ?? [];
+  }
+
+  return catalog;
 }

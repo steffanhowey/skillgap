@@ -74,7 +74,11 @@ export function ArticleViewer({
             onClick={onComplete}
             disabled={isCompleted}
           >
-            {isCompleted ? "Completed" : "Mark Complete"}
+              {isCompleted
+                ? "Completed"
+                : variant === "missionPage"
+                  ? "I got the idea"
+                  : "Mark Complete"}
           </Button>
         }
         contentClassName="max-w-[720px] space-y-4"

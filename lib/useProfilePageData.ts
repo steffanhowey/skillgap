@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { buildHomePrimaryAction } from "@/lib/homeLaunchpad";
+import { getMissionPlayerTitle } from "@/lib/missionPresentation";
 import { FUNCTION_OPTIONS } from "@/lib/onboarding/types";
 import { useActiveMissions } from "@/lib/useActiveMissions";
 import { useCurrentUser } from "@/lib/useCurrentUser";
@@ -13,6 +14,14 @@ import {
 
 let cachedEvidenceArchive: ProfileAchievement[] | null = null;
 let evidenceArchiveRequest: Promise<ProfileAchievement[]> | null = null;
+
+/**
+ * Drop the cached work archive so the next profile visit refetches.
+ */
+export function invalidateEvidenceArchiveCache(): void {
+  cachedEvidenceArchive = null;
+  evidenceArchiveRequest = null;
+}
 
 async function loadEvidenceArchive(): Promise<ProfileAchievement[]> {
   if (cachedEvidenceArchive) {
@@ -116,7 +125,7 @@ export function useProfilePageData({
 
   const capabilityLine = useMemo(() => {
     if (skillProfile.achievements.length > 0) {
-      return "Capability proven through completed work.";
+      return "Capability practiced through completed work.";
     }
 
     return "Building capability through hands-on mission work.";
@@ -124,18 +133,18 @@ export function useProfilePageData({
 
   const focusedNowLine = useMemo(() => {
     if (activeMission) {
-      return activeMission.path.title;
+      return getMissionPlayerTitle(activeMission.path);
     }
 
     if (primaryAction.kind === "next" && primaryAction.mission) {
-      return primaryAction.mission.title;
+      return getMissionPlayerTitle(primaryAction.mission);
     }
 
     if (activeMissions.isLoading || recommendationsState.isLoading) {
-      return "Finding the next rep.";
+      return "Finding the next mission.";
     }
 
-    return "Choose the next rep to get started.";
+    return "Choose a mission to get started.";
   }, [
     activeMission,
     activeMissions.isLoading,

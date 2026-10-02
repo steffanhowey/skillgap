@@ -47,6 +47,7 @@ export type RecommendationReason =
   | "level_up"
   | "function_gap"
   | "domain_expansion"
+  | "editorial_sequence"
   | "market_demand";
 
 export type RecommendationActionType = "start_path" | "join_room" | "continue_path";

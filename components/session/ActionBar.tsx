@@ -548,7 +548,19 @@ export const ActionBar = memo(function ActionBar({
             <button
               ref={focusPopover?.focusButtonRef}
               type="button"
-              onClick={focusPopover?.onToggle}
+              onClick={() => {
+                const selection = focusPopover?.missionSelection;
+                if (
+                  selection?.selectedMissionId &&
+                  !missionWorkspaceOpen &&
+                  selection.canOpenMissionWorkspace !== false &&
+                  selection.onOpenMissionWorkspace
+                ) {
+                  selection.onOpenMissionWorkspace();
+                  return;
+                }
+                focusPopover?.onToggle();
+              }}
               className={`${btn} ${
                 focusPopover?.open || missionWorkspaceOpen
                   ? "bg-white/15 text-white"

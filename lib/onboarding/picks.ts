@@ -1,24 +1,75 @@
 import { createClient } from "@/lib/supabase/client";
+import type { LearningPath } from "@/lib/types";
+import {
+  overlayPathOnPick,
+  picksFromLaunchCatalog,
+} from "./catalogPicks";
 import type {
+  FluencyLevel,
   OnboardingPick,
   ProfessionalFunction,
-  FluencyLevel,
 } from "./types";
 
+interface CatalogResponse {
+  catalog?: LearningPath[];
+}
+
+function mapPickRow(row: Record<string, unknown>): OnboardingPick {
+  return {
+    id: String(row.id ?? ""),
+    path_id: typeof row.path_id === "string" ? row.path_id : null,
+    function: String(row.function ?? ""),
+    fluency_level: String(row.fluency_level ?? ""),
+    path_topic: String(row.path_topic ?? ""),
+    display_title: String(row.display_title ?? ""),
+    display_description: String(row.display_description ?? ""),
+    time_estimate_min: Number(row.time_estimate_min ?? 30),
+    module_count: Number(row.module_count ?? 1),
+    tool_names: Array.isArray(row.tool_names)
+      ? row.tool_names.filter((name): name is string => typeof name === "string")
+      : [],
+    sort_order: Number(row.sort_order ?? 0),
+  };
+}
+
+async function fetchLaunchCatalog(): Promise<LearningPath[]> {
+  try {
+    const res = await fetch("/api/missions/catalog");
+    if (!res.ok) return [];
+    const data = (await res.json()) as CatalogResponse;
+    return Array.isArray(data.catalog) ? data.catalog : [];
+  } catch {
+    return [];
+  }
+}
+
+function enrichPick(
+  pick: OnboardingPick,
+  catalogById: Map<string, LearningPath>,
+): OnboardingPick {
+  if (!pick.path_id) return pick;
+  const path = catalogById.get(pick.path_id);
+  return path ? overlayPathOnPick(pick, path) : pick;
+}
+
 /**
- * Fetch editorial onboarding picks for a function × fluency combination.
+ * Fetch onboarding picks for a function × fluency combination.
  *
- * Returns the hero pick (sort_order 0) and up to 2 "also for you" picks.
- * If no exact match exists, falls back to the same function at any fluency.
+ * Prefers editorial rows that already have a real path_id. If those rows
+ * are missing (or path_id has not been migrated yet), falls back to the
+ * published launch catalog so the golden path still works.
  */
 export async function fetchOnboardingPicks(
   primaryFunction: ProfessionalFunction,
   fluencyLevel: FluencyLevel,
-  secondaryFunctions: ProfessionalFunction[] = []
+  secondaryFunctions: ProfessionalFunction[] = [],
 ): Promise<{ hero: OnboardingPick | null; also: OnboardingPick[] }> {
+  const catalog = await fetchLaunchCatalog();
+  const catalogById = new Map(catalog.map((path) => [path.id, path]));
+  const catalogFallback = picksFromLaunchCatalog(catalog, fluencyLevel);
+
   const supabase = createClient();
 
-  // Primary picks: exact function × fluency match
   const { data: primaryPicks } = await supabase
     .from("fp_onboarding_picks")
     .select("*")
@@ -31,11 +82,11 @@ export async function fetchOnboardingPicks(
   let also: OnboardingPick[] = [];
 
   if (primaryPicks && primaryPicks.length > 0) {
-    hero = primaryPicks[0] as OnboardingPick;
-    also = (primaryPicks.slice(1) as OnboardingPick[]);
+    const mapped = (primaryPicks as Record<string, unknown>[]).map(mapPickRow);
+    hero = enrichPick(mapped[0], catalogById);
+    also = mapped.slice(1).map((pick) => enrichPick(pick, catalogById));
   }
 
-  // If we have secondary functions and need more "also" picks, fetch from those
   if (also.length < 2 && secondaryFunctions.length > 0) {
     const needed = 2 - also.length;
     const { data: secondaryPicks } = await supabase
@@ -47,11 +98,15 @@ export async function fetchOnboardingPicks(
       .limit(needed);
 
     if (secondaryPicks) {
-      also = [...also, ...(secondaryPicks as OnboardingPick[])];
+      also = [
+        ...also,
+        ...(secondaryPicks as Record<string, unknown>[])
+          .map(mapPickRow)
+          .map((pick) => enrichPick(pick, catalogById)),
+      ];
     }
   }
 
-  // Fallback: if no hero, try same function at any fluency
   if (!hero) {
     const { data: fallbackPicks } = await supabase
       .from("fp_onboarding_picks")
@@ -61,10 +116,28 @@ export async function fetchOnboardingPicks(
       .limit(3);
 
     if (fallbackPicks && fallbackPicks.length > 0) {
-      hero = fallbackPicks[0] as OnboardingPick;
-      also = (fallbackPicks.slice(1) as OnboardingPick[]).slice(0, 2);
+      const mapped = (fallbackPicks as Record<string, unknown>[]).map(
+        mapPickRow,
+      );
+      hero = enrichPick(mapped[0], catalogById);
+      also = mapped
+        .slice(1)
+        .map((pick) => enrichPick(pick, catalogById))
+        .slice(0, 2);
     }
   }
 
-  return { hero, also: also.slice(0, 2) };
+  if (!hero?.path_id) {
+    return catalogFallback;
+  }
+
+  const alsoWithPaths = also.filter((pick) => Boolean(pick.path_id)).slice(0, 2);
+  if (alsoWithPaths.length === 0 && catalogFallback.also.length > 0) {
+    return {
+      hero,
+      also: catalogFallback.also.filter((pick) => pick.path_id !== hero.path_id),
+    };
+  }
+
+  return { hero, also: alsoWithPaths };
 }

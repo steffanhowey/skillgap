@@ -206,7 +206,7 @@ export function getMissionWhyNow(
     return candidate;
   }
 
-  return "A practical rep designed to turn AI understanding into finished work.";
+  return "A focused mission designed to turn AI understanding into finished work.";
 }
 
 /**
@@ -229,7 +229,7 @@ export function getMissionContext(
     mission?.context ??
     path.description ??
     path.goal ??
-    "A practical rep designed to turn AI understanding into output."
+    "A focused mission designed to turn AI understanding into output."
   );
 }
 
@@ -244,7 +244,7 @@ export function getMissionExpectedOutput(
   const mission = getMissionBriefing(path, progress);
 
   if (launchContent?.artifactSummary) return launchContent.artifactSummary;
-  if (!mission) return "A finished step you can carry into your next rep.";
+  if (!mission) return "A finished step you can carry into your next mission.";
   if (mission.success_criteria[0]) return mission.success_criteria[0];
 
   if (mission.submission_type === "screenshot") {
@@ -266,6 +266,46 @@ export function getMissionArtifactLabel(path: LearningPath): string | null {
 }
 
 /**
+ * Returns the lesson title when launch content has one.
+ */
+export function getMissionPlayerTitle(path: LearningPath): string {
+  return getLaunchMissionContent(path)?.playerTitle ?? path.title;
+}
+
+/**
+ * Returns one coaching line for the current solo step.
+ */
+export function getMissionStepCoaching(
+  path: LearningPath,
+  item: PathItem | null,
+): string {
+  if (!item) return "Start the first step.";
+
+  const launchContent = getLaunchMissionContent(path);
+  if (launchContent) {
+    if (item.task_type === "watch") return launchContent.watchCoaching;
+    if (item.task_type === "do") return launchContent.doCoaching;
+    if (item.task_type === "check") return launchContent.checkCoaching;
+    if (item.task_type === "reflect") return launchContent.reflectCoaching;
+  }
+
+  if (item.task_type === "do" && item.mission) {
+    return item.mission.objective;
+  }
+  if (item.task_type === "watch") {
+    return "Watch for the one idea you will use in the next step.";
+  }
+  if (item.task_type === "check") {
+    return "Check the work against what done looks like.";
+  }
+  if (item.task_type === "reflect") {
+    return "Capture the takeaway you will use next time.";
+  }
+
+  return item.title;
+}
+
+/**
  * Returns the next step in clear mission language.
  */
 export function getMissionNextAction(
@@ -276,26 +316,28 @@ export function getMissionNextAction(
     return "Review your outcome and decide what to work on next.";
   }
 
-  const currentItem = getMissionCurrentItem(path, progress);
-  if (!currentItem) return "Start the first step.";
+  return getMissionStepCoaching(path, getMissionCurrentItem(path, progress));
+}
 
-  if (currentItem.task_type === "do" && currentItem.mission) {
-    return currentItem.mission.objective;
-  }
+/**
+ * Room is a footnote after the first saved step, never a peer start CTA.
+ */
+export function getMissionRoomCtaMode(
+  state: MissionUiState,
+  itemsCompleted = 0,
+): "hidden" | "footnote" {
+  return state === "active" && itemsCompleted > 0 ? "footnote" : "hidden";
+}
 
-  if (currentItem.task_type === "watch") {
-    return `Watch ${currentItem.title} to set up the rep.`;
-  }
-
-  if (currentItem.task_type === "check") {
-    return `Check your work in ${currentItem.title}.`;
-  }
-
-  if (currentItem.task_type === "reflect") {
-    return `Capture the takeaway in ${currentItem.title}.`;
-  }
-
-  return currentItem.title;
+/**
+ * Returns a short step-kind label for the solo player chrome.
+ */
+export function getMissionStepKindLabel(item: PathItem | null): string {
+  if (!item) return "Step";
+  if (item.task_type === "do") return "Build";
+  if (item.task_type === "check") return "Check";
+  if (item.task_type === "reflect") return "Reflect";
+  return item.content_type === "video" ? "Watch" : "Read";
 }
 
 /**

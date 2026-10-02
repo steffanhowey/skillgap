@@ -6,19 +6,12 @@
  */
 
 import { NextResponse } from "next/server";
-import { createClient as createServerClient } from "@/lib/supabase/server";
+import { requireAdmin, isAdminError } from "@/lib/admin/requireAdmin";
 import { generateTopicSkillSeed } from "@/lib/intelligence/seedTopicSkillMap";
 
 export async function POST(): Promise<NextResponse> {
-  // Basic auth check
-  const supabase = await createServerClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-
-  if (!user) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-  }
+  const auth = await requireAdmin();
+  if (isAdminError(auth)) return auth;
 
   try {
     const result = await generateTopicSkillSeed();

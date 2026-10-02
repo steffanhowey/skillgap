@@ -5,10 +5,14 @@ const {
   createServerClientMock,
   createAdminClientMock,
   getSkillsWithDomainsMock,
+  seedLaunchSkillTagsForPathMock,
+  calculateSkillReceiptMock,
 } = vi.hoisted(() => ({
   createServerClientMock: vi.fn(),
   createAdminClientMock: vi.fn(),
   getSkillsWithDomainsMock: vi.fn(),
+  seedLaunchSkillTagsForPathMock: vi.fn(),
+  calculateSkillReceiptMock: vi.fn(),
 }));
 
 vi.mock("@/lib/supabase/server", () => ({
@@ -21,6 +25,14 @@ vi.mock("@/lib/supabase/admin", () => ({
 
 vi.mock("@/lib/skills/taxonomy", () => ({
   getSkillsWithDomains: getSkillsWithDomainsMock,
+}));
+
+vi.mock("@/lib/launchSkillTags", () => ({
+  seedLaunchSkillTagsForPath: seedLaunchSkillTagsForPathMock,
+}));
+
+vi.mock("@/lib/skills/receiptCalculator", () => ({
+  calculateSkillReceipt: calculateSkillReceiptMock,
 }));
 
 import { GET } from "./route";
@@ -56,6 +68,17 @@ function createAdminClientFixture() {
                         });
                       },
                     };
+                  },
+                };
+              },
+            };
+          },
+          update() {
+            return {
+              eq() {
+                return {
+                  eq() {
+                    return Promise.resolve({ error: null });
                   },
                 };
               },
@@ -172,6 +195,8 @@ describe("GET /api/learn/skill-receipt/[pathId]", () => {
     });
 
     createAdminClientMock.mockReturnValue(createAdminClientFixture());
+    seedLaunchSkillTagsForPathMock.mockResolvedValue(0);
+    calculateSkillReceiptMock.mockResolvedValue(null);
   });
 
   it("returns the persisted receipt immediately when one exists", async () => {
@@ -312,5 +337,48 @@ describe("GET /api/learn/skill-receipt/[pathId]", () => {
         paths_completed: 1,
       },
     });
+    expect(calculateSkillReceiptMock).not.toHaveBeenCalled();
+  });
+
+  it("calculates and persists a receipt when tags exist but user skills do not", async () => {
+    const calculatedReceipt: SkillReceipt = {
+      path: {
+        id: "path-1",
+        title: "Launch Path",
+        completed_at: "2026-08-27T18:00:00.000Z",
+      },
+      skills: [],
+      is_first_receipt: true,
+    };
+
+    fixture.achievementRow = {
+      skill_receipt: null,
+      completed_at: "2026-08-27T18:00:00.000Z",
+      path_title: "Launch Path",
+    };
+    fixture.progressRow = {
+      completed_at: "2026-08-27T18:00:00.000Z",
+      path_id: "path-1",
+      item_states: { "item-1": { completed: true } },
+    };
+    fixture.pathRow = {
+      id: "path-1",
+      title: "Launch Path",
+      items: [{ item_id: "item-1", task_type: "do" }],
+    };
+    fixture.tagRows = [{ skill_id: "skill-primary", relevance: "primary" }];
+    fixture.userSkills = [];
+    calculateSkillReceiptMock.mockResolvedValue(calculatedReceipt);
+
+    const response = await GET(
+      new Request("http://localhost/api/learn/skill-receipt/path-1"),
+      { params: Promise.resolve({ pathId: "path-1" }) },
+    );
+    const body = (await response.json()) as { skill_receipt: SkillReceipt };
+
+    expect(response.status).toBe(200);
+    expect(body.skill_receipt).toEqual(calculatedReceipt);
+    expect(calculateSkillReceiptMock).toHaveBeenCalledOnce();
+    expect(getSkillsWithDomainsMock).not.toHaveBeenCalled();
   });
 });

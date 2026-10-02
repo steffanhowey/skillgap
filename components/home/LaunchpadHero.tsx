@@ -5,7 +5,9 @@ import { Button } from "@/components/ui/Button";
 import { PathCover } from "@/components/learn/PathCover";
 import type { HomePrimaryAction } from "@/lib/homeLaunchpad";
 import {
+  getMissionExpectedOutput,
   getMissionNextAction,
+  getMissionPlayerTitle,
   getMissionProgressSummary,
   getMissionRepSummary,
 } from "@/lib/missionPresentation";
@@ -32,10 +34,14 @@ export function LaunchpadHero({
   const heroMission = primaryAction.mission;
   const heroTitle =
     primaryAction.kind === "empty"
-      ? "Start your next rep"
-      : (heroMission?.title ?? "Start your next rep");
+      ? "Start your first mission"
+      : (heroMission ? getMissionPlayerTitle(heroMission) : "Start your first mission");
   const heroEyebrow =
-    primaryAction.kind === "active" ? "Active Mission" : "Start Here";
+    primaryAction.kind === "active"
+      ? "Active Mission"
+      : primaryAction.isFirstMission
+        ? "Your first mission"
+        : "Start Here";
 
   return (
     <section
@@ -96,15 +102,30 @@ export function LaunchpadHero({
                   >
                     {heroTitle}
                   </h1>
+                  {heroMission ? (
+                    <p className="max-w-xl text-sm leading-6 text-white/70">
+                      {getMissionExpectedOutput(
+                        heroMission,
+                        primaryAction.progress,
+                      )}
+                    </p>
+                  ) : (
+                    <p className="max-w-xl text-sm leading-6 text-white/70">
+                      Do one focused mission in a real tool. Leave with work you
+                      can use.
+                    </p>
+                  )}
                 </div>
 
                 <div className="flex flex-wrap items-center gap-3">
                   <Button variant="cta" onClick={onPrimaryAction}>
                     {primaryAction.kind === "active"
-                      ? "Resume Mission"
-                      : primaryAction.kind === "next"
-                        ? "Start Next Rep"
-                        : "Browse Missions"}
+                      ? "Continue this mission"
+                      : primaryAction.isFirstMission
+                        ? "Start this mission"
+                        : primaryAction.kind === "next"
+                          ? "Start this mission"
+                          : "See missions"}
                   </Button>
 
                   {primaryAction.kind !== "empty" && onRoomAction ? (
@@ -139,7 +160,7 @@ export function LaunchpadHero({
               path={heroMission}
               progress={primaryAction.progress}
               badgeLabel={
-                primaryAction.kind === "active" ? "Resume" : "Next Rep"
+                primaryAction.kind === "active" ? "Continue" : "Up next"
               }
               supportLine={
                 primaryAction.kind === "active" && primaryAction.progress
@@ -232,7 +253,7 @@ function HeroMissionPreviewCard({
       type="button"
       onClick={onOpen}
       className="group/resume block w-full cursor-pointer text-left transition-colors focus:outline-none"
-      aria-label={`${badgeLabel} ${path.title}`}
+      aria-label={`${badgeLabel} ${getMissionPlayerTitle(path)}`}
     >
       <div
         className="relative w-full overflow-hidden rounded-md border transition-all duration-200"
@@ -284,7 +305,7 @@ function HeroMissionPreviewCard({
         <div className="flex items-start gap-3 px-1 pt-2.5">
           <div className="min-w-0 flex-1 space-y-1">
             <h2 className="line-clamp-2 text-base font-semibold leading-snug text-white">
-              {path.title}
+              {getMissionPlayerTitle(path)}
             </h2>
             {supportLine ? (
               <p className="line-clamp-2 text-xs leading-5 text-white/58">
@@ -356,7 +377,7 @@ function HeroEmptyStateCard() {
           No mission surfaced yet
         </p>
         <p className="text-sm leading-6 text-white/65">
-          Open Missions to search by workflow, deliverable, or next rep.
+          Open Missions to search by workflow or the work you want to make.
         </p>
       </div>
     </div>

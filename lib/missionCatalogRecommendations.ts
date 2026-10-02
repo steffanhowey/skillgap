@@ -220,7 +220,7 @@ export function buildMissionCatalogSkillRecommendations(
   );
 
   return recommendedPaths.map((path, index) => ({
-    reason: "market_demand",
+    reason: "editorial_sequence",
     priority: Math.max(100 - index * 10, 10),
     paths: [path],
     action: {

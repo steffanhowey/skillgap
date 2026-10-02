@@ -66,6 +66,11 @@ import { useCurriculum } from "@/lib/useCurriculum";
 import { useLearnProgress } from "@/lib/useLearnProgress";
 import { usePostCompletionRecommendations } from "@/lib/usePostCompletionRecommendations";
 import { extractYouTubeId } from "@/lib/youtube";
+import { trackMissionStartedInRoom } from "@/lib/onboarding/tracking";
+import {
+  clearMissionRoomHandoff,
+  readIncomingMissionRoomHandoff,
+} from "@/lib/missionRoomHandoff";
 
 type SidePanel = "none" | "momentum" | "chat" | "settings" | "breaks" | "mission";
 type CelebrationInfo = { color: string; text: string };
@@ -477,6 +482,7 @@ export default function EnvironmentPage() {
     advanceToItem: advanceMissionItem,
     isCompleted: roomMissionCompleted,
     skillReceipt: roomMissionSkillReceipt,
+    skillReceiptReady: roomMissionSkillReceiptReady,
   } = useLearnProgress(
     selectedMissionContext?.missionId ?? null,
     missionWorkspaceOpen && phase === "sprint",
@@ -959,6 +965,49 @@ export default function EnvironmentPage() {
     if (joinConfigRef.current) setShowJoinModal(false);
   }, [partyId, persistence.wasRestored]);
 
+  const incomingMissionHandoffRef = useRef(readIncomingMissionRoomHandoff());
+
+  // If the user is already in the room, still attach the incoming mission
+  // and open the overlay. The join modal is skipped on restored sessions.
+  useEffect(() => {
+    const handoff = incomingMissionHandoffRef.current;
+    if (!handoff) return;
+
+    const selection = normalizeMissionSelection({
+      missionId: handoff.missionId,
+      missionTitle: handoff.missionTitle,
+      missionDomain: handoff.missionDomain,
+      missionStepIndex: handoff.missionStepIndex,
+      missionStepTitle: handoff.missionStepTitle,
+    });
+    if (!selection) {
+      incomingMissionHandoffRef.current = null;
+      return;
+    }
+
+    setSelectedMissionContext(selection);
+    setGoal(selection.missionTitle ?? "");
+
+    if (!persistence.wasRestored && showJoinModal) {
+      return;
+    }
+
+    incomingMissionHandoffRef.current = null;
+    clearMissionRoomHandoff();
+    setShowJoinModal(false);
+    if (!selection.missionId) return;
+
+    setMissionWorkspaceOpen(true);
+    setActivePanel("mission");
+    trackMissionStartedInRoom(selection.missionId, partyId);
+    persistence
+      .updateSessionFocus({
+        goalText: selection.missionTitle ?? null,
+        metadata: getMissionSelectionMetadata(selection),
+      })
+      .catch(() => {});
+  }, [partyId, persistence, persistence.wasRestored, showJoinModal]);
+
   const startSprintFromJoinConfig = useCallback(
     async (config: JoinConfig): Promise<boolean> => {
       if (!userId) return false;
@@ -1085,12 +1134,22 @@ export default function EnvironmentPage() {
     musicAutoPlayRef.current = config.musicAutoPlay ?? false;
 
     if (config.autoStart && userId) {
+      if (config.missionId) {
+        setJoiningCountdown(0);
+        setPhase("sprint");
+        setMissionWorkspaceOpen(true);
+        setSprintGoalCardOpen(false);
+        trackMissionStartedInRoom(config.missionId, partyId);
+        void startSprintFromJoinConfig(config);
+        return;
+      }
+
       // Enter the joining countdown phase (5→1 in the timer pill)
       setJoiningCountdown(5);
       setPhase("joining");
       setSprintGoalCardOpen(false);
     }
-  }, [userId, selectTask]);
+  }, [userId, selectTask, startSprintFromJoinConfig, partyId]);
 
   // ─── Joining countdown → sprint transition ─────────────────
   useEffect(() => {
@@ -2657,6 +2716,7 @@ export default function EnvironmentPage() {
           progress={roomMissionProgress}
           achievement={roomMissionAchievement}
           skillReceipt={roomMissionSkillReceipt}
+          skillReceiptReady={roomMissionSkillReceiptReady}
           recommendedPaths={roomMissionRecommendedPaths}
           recommendationsLoading={roomMissionRecommendationsLoading}
           currentItemIndex={roomMissionCurrentItemIndex}

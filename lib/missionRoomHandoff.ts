@@ -12,6 +12,53 @@ function hasWindow(): boolean {
   return typeof window !== "undefined";
 }
 
+/**
+ * Read a mission handoff from query params (Start in Room links).
+ */
+export function readMissionRoomHandoffFromSearch(
+  search:
+    | string
+    | { get(name: string): string | null }
+    | null = null,
+): MissionRoomHandoff | null {
+  const params =
+    typeof search === "string"
+      ? new URLSearchParams(search)
+      : search ??
+        (hasWindow() ? new URLSearchParams(window.location.search) : null);
+
+  if (!params) return null;
+
+  const missionId = params.get("missionId");
+  const missionTitle = params.get("missionTitle");
+  const missionDomain = params.get("missionDomain");
+  const missionStepTitle = params.get("missionStepTitle");
+  const rawMissionStepIndex = params.get("missionStepIndex");
+  const missionStepIndex =
+    rawMissionStepIndex !== null && /^-?\d+$/.test(rawMissionStepIndex)
+      ? Number.parseInt(rawMissionStepIndex, 10)
+      : null;
+
+  if (!missionId && !missionTitle && !missionDomain) {
+    return null;
+  }
+
+  return {
+    missionId,
+    missionTitle,
+    missionDomain,
+    missionStepIndex,
+    missionStepTitle,
+  };
+}
+
+/**
+ * Prefer the URL handoff, then the sessionStorage handoff.
+ */
+export function readIncomingMissionRoomHandoff(): MissionRoomHandoff | null {
+  return readMissionRoomHandoffFromSearch() ?? readMissionRoomHandoff();
+}
+
 export function readMissionRoomHandoff(): MissionRoomHandoff | null {
   if (!hasWindow()) return null;
 

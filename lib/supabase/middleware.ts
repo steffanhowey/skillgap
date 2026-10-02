@@ -1,24 +1,6 @@
 import { createServerClient } from "@supabase/ssr";
 import { NextResponse, type NextRequest } from "next/server";
-
-/** Routes that require an authenticated session. */
-const PROTECTED_PREFIXES = [
-  "/home",
-  "/missions",
-  "/rooms",
-  "/progress",
-  "/settings",
-  "/learn",
-  "/practice",
-  "/skills",
-  "/stats",
-  "/goals",
-  "/dashboard",
-  "/profile",
-  "/session",
-  "/onboard",
-  "/admin",
-];
+import { isAuthProtectedPath } from "@/lib/authProtectedPaths";
 
 export async function updateSession(request: NextRequest) {
   // Don't interfere with the auth callback — the route handler
@@ -73,10 +55,7 @@ export async function updateSession(request: NextRequest) {
   }
 
   // Redirect unauthenticated users away from protected routes.
-  if (
-    !user &&
-    PROTECTED_PREFIXES.some((prefix) => pathname.startsWith(prefix))
-  ) {
+  if (!user && isAuthProtectedPath(pathname)) {
     const loginUrl = request.nextUrl.clone();
     loginUrl.pathname = "/login";
     loginUrl.searchParams.set("next", pathname);
@@ -89,7 +68,7 @@ export async function updateSession(request: NextRequest) {
     user &&
     !pathname.startsWith("/onboard") &&
     !pathname.startsWith("/callback") &&
-    PROTECTED_PREFIXES.some((prefix) => pathname.startsWith(prefix))
+    isAuthProtectedPath(pathname)
   ) {
     const onboardingCookie = request.cookies.get("fp_onboarded")?.value;
 

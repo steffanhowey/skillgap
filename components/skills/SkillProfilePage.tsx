@@ -89,7 +89,7 @@ export function SkillProfilePage({
             Your capability record starts here
           </h2>
           <p className="mt-1 text-sm text-[var(--sg-shell-500)] max-w-sm">
-            Complete missions to develop verified AI skills and build a durable capability record.
+            Complete missions to practice AI skills and build a capability record from the work you finish.
           </p>
         </div>
         <Link href="/missions">

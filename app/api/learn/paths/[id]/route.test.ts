@@ -362,7 +362,12 @@ describe("PATCH /api/learn/paths/[id]", () => {
       new Request("http://localhost/api/learn/paths/path-1", {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ item_completed: "item-1" }),
+        body: JSON.stringify({
+          item_completed: "item-1",
+          item_state: {
+            evaluation: { quality: "good", feedback: "Solid work." },
+          },
+        }),
       }),
       { params: Promise.resolve({ id: "path-1" }) },
     );
@@ -429,7 +434,12 @@ describe("PATCH /api/learn/paths/[id]", () => {
       new Request("http://localhost/api/learn/paths/path-1", {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ item_completed: "item-1" }),
+        body: JSON.stringify({
+          item_completed: "item-1",
+          item_state: {
+            evaluation: { quality: "good", feedback: "Solid work." },
+          },
+        }),
       }),
       { params: Promise.resolve({ id: "path-1" }) },
     );
@@ -482,6 +492,9 @@ describe("PATCH /api/learn/paths/[id]", () => {
         body: JSON.stringify({
           item_completed: "item-1",
           time_delta_seconds: 45,
+          item_state: {
+            evaluation: { quality: "good", feedback: "Solid work." },
+          },
         }),
       }),
       { params: Promise.resolve({ id: "path-1" }) },
@@ -573,7 +586,12 @@ describe("PATCH /api/learn/paths/[id]", () => {
       new Request("http://localhost/api/learn/paths/path-1", {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ item_completed: "item-1" }),
+        body: JSON.stringify({
+          item_completed: "item-1",
+          item_state: {
+            evaluation: { quality: "good", feedback: "Solid work." },
+          },
+        }),
       }),
       { params: Promise.resolve({ id: "path-1" }) },
     );
@@ -638,5 +656,32 @@ describe("PATCH /api/learn/paths/[id]", () => {
       share_slug: "steffan-automation-a3f8",
       path_title: "Ship a Workflow",
     });
+  });
+
+  it("does not complete a path when the only Do item is skipped", async () => {
+    calculateSkillReceiptMock.mockResolvedValue(null);
+
+    const response = await PATCH(
+      new Request("http://localhost/api/learn/paths/path-1", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          item_completed: "item-1",
+          item_state: { skipped: true },
+        }),
+      }),
+      { params: Promise.resolve({ id: "path-1" }) },
+    );
+
+    const body = (await response.json()) as {
+      progress: { status: string; items_completed: number };
+      achievement?: unknown;
+    };
+
+    expect(response.status).toBe(200);
+    expect(body.progress.status).toBe("in_progress");
+    expect(body.progress.items_completed).toBe(0);
+    expect(body.achievement).toBeUndefined();
+    expect(calculateSkillReceiptMock).not.toHaveBeenCalled();
   });
 });

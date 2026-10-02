@@ -1,8 +1,10 @@
+> **Scope note (Oct 2, 2026):** `ROADMAP.md` is the source of truth for what gets built and in what order; `PLAN_90_DAYS.md` is the commercial plan. The "What This Project Is" section below describes the original four-engine vision and is kept for context. Where they conflict, ROADMAP.md wins. Synthetic users are retired. The code conventions, AI/LLM patterns, design-system rules and database conventions below all still apply.
+
 # SkillGap.ai — Development Standards
 
 ## Critical Warnings
 
-- **NEVER use Supabase MCP tools** (execute_sql, apply_migration, etc.) — the MCP is connected to the WRONG project (Inflow, not SkillGap). Always provide SQL in chat for the user to copy/paste.
+- **Use the SkillGap Supabase MCP only.** Project server: `supabase-skillgap` (`project_ref=lipdyycqbuvibgxcckjd`). Never use the global `supabase` MCP — that is HumanDeploy, not SkillGap.
 - **YouTube embeds only.** Never download, re-host, or clip YouTube content. Use YouTube's official embed player. Timestamp cueing is fine. This is a legal hard line.
 - **Never auto-publish rooms.** Auto-generated rooms go through an editorial review queue (`fp_room_blueprints` with status draft → approved → provisioned). Never skip the review step.
 
