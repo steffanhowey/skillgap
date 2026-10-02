@@ -12,6 +12,7 @@ import { evaluateArticleBatch } from "@/lib/learn/articleScoring";
  * Schedule: every 6 hours (0 *​/6 * * *)
  */
 export async function GET(request: Request): Promise<NextResponse> {
+  // not scheduled since Oct 2, 2026 — see ROADMAP.md
   // Verify cron auth
   const authHeader = request.headers.get("authorization");
   const cronSecret = process.env.CRON_SECRET;

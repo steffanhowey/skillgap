@@ -44,25 +44,13 @@ In Supabase Auth, add the production URL and `/callback` to the redirect allow l
 
 ## Crons still in `vercel.json`
 
-`/api/synthetics/tick` is removed. That route returns 410.
+Launch keeps four. Each checks `CRON_SECRET` through `verifyAdminAuth`. The other routes stay in the repo and are not scheduled.
 
 | Path | Schedule |
 |---|---|
-| `/api/backgrounds/rotate` | `0 6 * * *` |
-| `/api/pipeline/run` | `0 */3 * * *` |
-| `/api/topics/cluster` | `0 * * * *` |
-| `/api/signals/collect` | `*/15 * * * *` |
-| `/api/breaks/scaffold` | `0 4,16 * * *` |
-| `/api/breaks/discover-hot` | `15 */2 * * *` |
-| `/api/rooms/auto-generate` | `0 */4 * * *` |
-| `/api/rooms/lifecycle` | `0 5 * * *` |
+| `/api/signals/collect` | `0 * * * *` |
 | `/api/analytics/aggregate` | `0 2 * * *` |
-| `/api/analytics/calibrate` | `0 3 * * 0` |
-| `/api/learn/ingest-articles` | `0 */6 * * *` |
-| `/api/intelligence/practitioner-aggregate` | `0 3 * * *` |
-| `/api/intelligence/skill-heat` | `30 3 * * *` |
-| `/api/intelligence/synthesize` | `0 6 * * 1` |
-| `/api/intelligence/generate-index` | `0 7 * * 1` |
+| `/api/rooms/lifecycle` | `0 5 * * *` |
 | `/api/intelligence/cleanup` | `0 4 * * 0` |
 
 ## DNS — skillgap.ai off Namecheap parking

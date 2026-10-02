@@ -7,6 +7,7 @@ import { startPipelineEvent } from "@/lib/pipeline/logger";
 import { discoverForHotTopics } from "@/lib/breaks/topicTriggeredDiscovery";
 
 export async function GET(request: Request): Promise<Response> {
+  // not scheduled since Oct 2, 2026 — see ROADMAP.md
   if (!(await verifyAdminAuth(request))) {
     return Response.json({ error: "Unauthorized" }, { status: 401 });
   }

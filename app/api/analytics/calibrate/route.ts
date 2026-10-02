@@ -13,6 +13,7 @@ import { analyzeCreatorPerformance } from "@/lib/analytics/creatorPerformance";
  * Cron-triggered weekly calibration of scoring systems.
  */
 export async function GET(request: Request): Promise<Response> {
+  // not scheduled since Oct 2, 2026 — see ROADMAP.md
   if (!(await verifyAdminAuth(request))) {
     return Response.json({ error: "Unauthorized" }, { status: 401 });
   }

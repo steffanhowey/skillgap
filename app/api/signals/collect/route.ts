@@ -1,5 +1,5 @@
 // ─── Signal Collection Orchestrator ──────────────────────────
-// Cron: every 15 min. Runs due signal collectors based on their
+// Cron: hourly. Runs due signal collectors based on their
 // configured frequency. Each source runs independently — partial
 // failures don't block other sources.
 
@@ -66,7 +66,7 @@ async function getDueSources(
 // ─── Handlers ───────────────────────────────────────────────
 
 /**
- * GET /api/signals/collect — Cron handler (every 15 min).
+ * GET /api/signals/collect — Cron handler (hourly).
  * Runs all due collectors based on their frequency settings.
  */
 export async function GET(request: Request): Promise<NextResponse> {

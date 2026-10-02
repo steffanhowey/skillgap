@@ -1,64 +1,16 @@
 {
   "crons": [
     {
-      "path": "/api/backgrounds/rotate",
-      "schedule": "0 6 * * *"
-    },
-    {
-      "path": "/api/pipeline/run",
-      "schedule": "0 */3 * * *"
-    },
-    {
-      "path": "/api/topics/cluster",
-      "schedule": "0 * * * *"
-    },
-    {
       "path": "/api/signals/collect",
-      "schedule": "*/15 * * * *"
-    },
-    {
-      "path": "/api/breaks/scaffold",
-      "schedule": "0 4,16 * * *"
-    },
-    {
-      "path": "/api/breaks/discover-hot",
-      "schedule": "15 */2 * * *"
-    },
-    {
-      "path": "/api/rooms/auto-generate",
-      "schedule": "0 */4 * * *"
-    },
-    {
-      "path": "/api/rooms/lifecycle",
-      "schedule": "0 5 * * *"
+      "schedule": "0 * * * *"
     },
     {
       "path": "/api/analytics/aggregate",
       "schedule": "0 2 * * *"
     },
     {
-      "path": "/api/analytics/calibrate",
-      "schedule": "0 3 * * 0"
-    },
-    {
-      "path": "/api/learn/ingest-articles",
-      "schedule": "0 */6 * * *"
-    },
-    {
-      "path": "/api/intelligence/practitioner-aggregate",
-      "schedule": "0 3 * * *"
-    },
-    {
-      "path": "/api/intelligence/skill-heat",
-      "schedule": "30 3 * * *"
-    },
-    {
-      "path": "/api/intelligence/synthesize",
-      "schedule": "0 6 * * 1"
-    },
-    {
-      "path": "/api/intelligence/generate-index",
-      "schedule": "0 7 * * 1"
+      "path": "/api/rooms/lifecycle",
+      "schedule": "0 5 * * *"
     },
     {
       "path": "/api/intelligence/cleanup",

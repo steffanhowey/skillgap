@@ -22,6 +22,7 @@ import {
  * pipeline for ALL 4 categories in that world.
  */
 export async function GET(request: Request) {
+  // not scheduled since Oct 2, 2026 — see ROADMAP.md
   if (!(await verifyAdminAuth(request))) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }

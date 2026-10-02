@@ -18,6 +18,7 @@ import type { HeatDrivenResult } from "@/lib/learn/heatDrivenDiscovery";
  * Processes signals, recalculates heat, updates statuses.
  */
 export async function GET(request: Request): Promise<NextResponse> {
+  // not scheduled since Oct 2, 2026 — see ROADMAP.md
   const isAdmin = await verifyAdminAuth(request);
   if (!isAdmin) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
