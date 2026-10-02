@@ -292,8 +292,8 @@ export function useLearnProgress(
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ item_completed: contentId, item_state: stateData }),
         });
-        if (res.status === 402) {
-          setCanDo(false);
+        if (!res.ok) {
+          if (res.status === 402) setCanDo(false);
           setProgress((prev) => {
             if (!prev) return prev;
             const itemStates = { ...(prev.item_states ?? {}) };

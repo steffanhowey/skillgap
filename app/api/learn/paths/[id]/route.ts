@@ -7,7 +7,7 @@ import {
   isStaleTaughtHeroProgress,
   reconcileTaughtHeroProgress,
 } from "@/lib/learn/taughtHero/unit";
-import type { AchievementSummary, LearningProgress } from "@/lib/types";
+import type { AchievementSummary, ItemState, LearningProgress } from "@/lib/types";
 import { evaluateSubmission, type SubmissionEvaluation } from "@/lib/learn/evaluator";
 import { UpdateProgressSchema, parseBody } from "@/lib/learn/validation";
 import type { SkillReceipt } from "@/lib/types/skills";
@@ -19,6 +19,7 @@ import {
   mapAchievementSummaryRow,
 } from "@/lib/achievements/achievementModel";
 import { canDoMission } from "@/lib/billing/plan";
+import { recordPracticeLog } from "@/lib/learn/practiceLog";
 
 /**
  * GET /api/learn/paths/[id]
@@ -369,6 +370,22 @@ export async function PATCH(
         : {}),
     };
     updates.item_states = itemStates;
+
+    if (!isSkipped && completedItem?.task_type === "reflect") {
+      const reflectItem = pathItems.find(
+        (item) => (item as { item_id?: string }).item_id === body.item_completed,
+      ) as { module_index?: number } | undefined;
+      const wrote = await recordPracticeLog(admin, {
+        userId: user.id,
+        pathId: id,
+        path,
+        moduleIndex: reflectItem?.module_index ?? 0,
+        itemStates: itemStates as Record<string, ItemState>,
+      });
+      if (!wrote) {
+        return NextResponse.json({ error: "practice_log_failed" }, { status: 500 });
+      }
+    }
 
     // Count completed items
     const completedCount = Object.values(itemStates).filter((state) => {
