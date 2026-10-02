@@ -4,6 +4,32 @@ export const ROOMS_ROUTE = "/rooms";
 export const PROGRESS_ROUTE = "/progress";
 export const SETTINGS_ROUTE = "/settings";
 
+/**
+ * Exact paths a stranger can open without a session.
+ * Dynamic public paths are in {@link PUBLIC_ROUTE_PREFIXES}.
+ */
+export const PUBLIC_EXACT_ROUTES = [
+  "/",
+  "/pulse",
+  "/index",
+  "/login",
+  "/signup",
+  "/terms",
+  "/privacy",
+  "/refund",
+] as const;
+
+/**
+ * Prefixes that stay public even when a shorter path requires a session.
+ * `/skills` (hub) stays protected; `/skills/[slug]` does not.
+ */
+export const PUBLIC_ROUTE_PREFIXES = [
+  "/skills/",
+  "/index/",
+  "/progress/evidence",
+  "/learn/achievements",
+] as const;
+
 /** Founder-only path. Not a catalog card and not indexed. */
 export const LAUNCH_MESSAGING_ROUTE = "/missions/launch-messaging";
 

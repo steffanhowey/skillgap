@@ -20,4 +20,23 @@ describe("isAuthProtectedPath", () => {
       ),
     ).toBe(false);
   });
+
+  it("keeps the stranger-facing routes public", () => {
+    expect(isAuthProtectedPath("/")).toBe(false);
+    expect(isAuthProtectedPath("/pulse")).toBe(false);
+    expect(isAuthProtectedPath("/skills/content-marketer")).toBe(false);
+    expect(isAuthProtectedPath("/index")).toBe(false);
+    expect(isAuthProtectedPath("/index/2026-09")).toBe(false);
+    expect(isAuthProtectedPath("/learn/achievements/path-1")).toBe(false);
+    expect(isAuthProtectedPath("/login")).toBe(false);
+    expect(isAuthProtectedPath("/signup")).toBe(false);
+    expect(isAuthProtectedPath("/terms")).toBe(false);
+    expect(isAuthProtectedPath("/privacy")).toBe(false);
+    expect(isAuthProtectedPath("/refund")).toBe(false);
+  });
+
+  it("keeps the hub skill and path pages protected", () => {
+    expect(isAuthProtectedPath("/skills")).toBe(true);
+    expect(isAuthProtectedPath("/learn/paths/path-1")).toBe(true);
+  });
 });
