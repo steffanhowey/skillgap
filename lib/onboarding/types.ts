@@ -48,6 +48,44 @@ export interface OnboardingPick {
 /** Launch function that currently has a published catalog. */
 export const LIVE_ONBOARDING_FUNCTION: ProfessionalFunction = "marketing";
 
+/** Onboarding question 1. Stored on fp_profiles.marketing_role. */
+export type MarketingRole =
+  | "generalist"
+  | "content"
+  | "product_marketing"
+  | "demand_gen"
+  | "brand"
+  | "social"
+  | "agency"
+  | "not_marketing";
+
+export interface MarketingRoleOption {
+  value: MarketingRole;
+  label: string;
+}
+
+export const MARKETING_ROLE_OPTIONS: MarketingRoleOption[] = [
+  { value: "generalist", label: "Marketing lead or generalist" },
+  { value: "content", label: "Content" },
+  { value: "product_marketing", label: "Product marketing" },
+  { value: "demand_gen", label: "Demand gen and growth" },
+  { value: "brand", label: "Brand and creative" },
+  { value: "social", label: "Social" },
+  { value: "agency", label: "Agency or client services" },
+  { value: "not_marketing", label: "I'm not in marketing" },
+];
+
+/**
+ * Marketing roles share primary_function marketing.
+ * "I'm not in marketing" leaves the function unset so path assignment uses the generator.
+ */
+export function primaryFunctionForRole(
+  role: MarketingRole | null,
+): ProfessionalFunction | null {
+  if (!role || role === "not_marketing") return null;
+  return "marketing";
+}
+
 /** Canonical function options for the selection grid. */
 export const FUNCTION_OPTIONS: FunctionOption[] = [
   { value: "engineering", label: "Engineering", icon: "code-2" },

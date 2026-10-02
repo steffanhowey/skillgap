@@ -425,6 +425,7 @@ export type Database = {
           is_admin: boolean
           is_founding: boolean
           last_name: string | null
+          marketing_role: string | null
           onboarding_completed: boolean
           plan: string
           plan_period_end: string | null
@@ -456,6 +457,7 @@ export type Database = {
           is_admin?: boolean
           is_founding?: boolean
           last_name?: string | null
+          marketing_role?: string | null
           onboarding_completed?: boolean
           plan?: string
           plan_period_end?: string | null
@@ -487,6 +489,7 @@ export type Database = {
           is_admin?: boolean
           is_founding?: boolean
           last_name?: string | null
+          marketing_role?: string | null
           onboarding_completed?: boolean
           plan?: string
           plan_period_end?: string | null

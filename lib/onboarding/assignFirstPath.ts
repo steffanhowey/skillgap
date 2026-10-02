@@ -2,7 +2,7 @@ import { createClient } from "@/lib/supabase/admin";
 import { generateAndCacheCurriculum } from "@/lib/learn/curriculumGenerator";
 import type { PlanName } from "@/lib/billing/plan";
 import type { CurriculumModule, PathItem } from "@/lib/types/learning";
-import type { FocusArea, FluencyLevel, ProfessionalFunction } from "@/lib/onboarding/types";
+import type { FocusArea, FluencyLevel, MarketingRole, ProfessionalFunction } from "@/lib/onboarding/types";
 import {
   firstMissionSummary,
   keepFirstModule,
@@ -15,6 +15,7 @@ export type { FirstPathAssignment };
 interface AssignInput {
   userId: string;
   userFunction: ProfessionalFunction | null;
+  marketingRole: MarketingRole | null;
   fluency: FluencyLevel | null;
   focusAreas: FocusArea[];
   plan: PlanName;
@@ -39,21 +40,16 @@ export async function assignFirstPath(
 ): Promise<FirstPathAssignment> {
   const admin = createClient();
 
-  if (input.userFunction) {
-    const { data } = await admin
-      .from("fp_learning_paths")
-      .select("id, title, items, modules, estimated_duration_seconds")
-      .eq("is_role_path", true)
-      .eq("role_function", input.userFunction)
-      .eq("review_status", "approved")
-      .order("created_at", { ascending: true })
-      .limit(1)
-      .maybeSingle();
-
-    if (data?.id) {
+  if (input.marketingRole && input.marketingRole !== "not_marketing") {
+    const specific = await findRolePath(admin, input.marketingRole);
+    const fallback =
+      specific || input.marketingRole === "generalist"
+        ? specific
+        : await findRolePath(admin, "generalist");
+    if (fallback?.id) {
       return {
         state: "role",
-        path: firstMissionSummary(data as RolePathRow),
+        path: firstMissionSummary(fallback),
         interim: null,
       };
     }
@@ -112,6 +108,22 @@ export async function assignFirstPath(
     console.error("[onboarding] free path generation failed", err);
     return { state: "preparing", path: null, interim: null };
   }
+}
+
+async function findRolePath(
+  admin: ReturnType<typeof createClient>,
+  roleFunction: string,
+): Promise<RolePathRow | null> {
+  const { data } = await admin
+    .from("fp_learning_paths")
+    .select("id, title, items, modules, estimated_duration_seconds")
+    .eq("is_role_path", true)
+    .eq("role_function", roleFunction)
+    .eq("review_status", "approved")
+    .order("created_at", { ascending: true })
+    .limit(1)
+    .maybeSingle();
+  return data?.id ? (data as RolePathRow) : null;
 }
 
 async function generateForReview(input: AssignInput, query: string): Promise<void> {

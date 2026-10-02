@@ -2,13 +2,15 @@
 
 import OptionList from "./OptionList";
 import {
-  FUNCTION_OPTIONS,
+  MARKETING_ROLE_OPTIONS,
+  primaryFunctionForRole,
+  type MarketingRole,
   type ProfessionalFunction,
 } from "@/lib/onboarding/types";
 
 interface FunctionStepProps {
   activeIndex?: number;
-  selected?: ProfessionalFunction | null;
+  selected?: MarketingRole | null;
   onChoose?: (index: number) => void;
   /** Immediate commit for the existing migration modal. */
   onSelect?: (
@@ -25,7 +27,7 @@ export default function FunctionStep({
 }: FunctionStepProps) {
   return (
     <OptionList
-      options={FUNCTION_OPTIONS.map((option) => ({
+      options={MARKETING_ROLE_OPTIONS.map((option) => ({
         value: option.value,
         label: option.label,
       }))}
@@ -33,8 +35,9 @@ export default function FunctionStep({
       selected={selected ? [selected] : []}
       onChoose={(index) => {
         onChoose?.(index);
-        const value = FUNCTION_OPTIONS[index]?.value;
-        if (value && onSelect) onSelect(value, []);
+        const role = MARKETING_ROLE_OPTIONS[index]?.value;
+        const primary = role ? primaryFunctionForRole(role) : null;
+        if (primary && onSelect) onSelect(primary, []);
       }}
     />
   );

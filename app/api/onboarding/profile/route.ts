@@ -6,17 +6,18 @@ import { getPlan } from "@/lib/billing/plan";
 import { allocateHandle } from "@/lib/onboarding/allocateHandle";
 import { assignFirstPath } from "@/lib/onboarding/assignFirstPath";
 import {
-  FUNCTION_OPTIONS,
   FLUENCY_OPTIONS,
+  MARKETING_ROLE_OPTIONS,
   normalizeFocusAreas,
+  primaryFunctionForRole,
   type FluencyLevel,
-  type ProfessionalFunction,
+  type MarketingRole,
 } from "@/lib/onboarding/types";
 
-function asFunction(value: unknown): ProfessionalFunction | null {
+function asRole(value: unknown): MarketingRole | null {
   if (typeof value !== "string") return null;
-  return FUNCTION_OPTIONS.some((option) => option.value === value)
-    ? (value as ProfessionalFunction)
+  return MARKETING_ROLE_OPTIONS.some((option) => option.value === value)
+    ? (value as MarketingRole)
     : null;
 }
 
@@ -75,7 +76,8 @@ export async function POST(request: Request): Promise<NextResponse> {
     return NextResponse.json({ username });
   }
 
-  const primaryFunction = asFunction(record.primaryFunction);
+  const marketingRole = asRole(record.marketingRole);
+  const primaryFunction = primaryFunctionForRole(marketingRole);
   const fluencyLevel = asFluency(record.fluencyLevel);
   const focusAreas = normalizeFocusAreas(
     Array.isArray(record.focusAreas) ? record.focusAreas.map(String) : [],
@@ -87,6 +89,7 @@ export async function POST(request: Request): Promise<NextResponse> {
       username,
       onboarding_completed: true,
       primary_function: primaryFunction,
+      marketing_role: marketingRole,
       fluency_level: fluencyLevel,
       focus_areas: focusAreas,
       secondary_functions: [],
@@ -103,6 +106,7 @@ export async function POST(request: Request): Promise<NextResponse> {
     {
       userId: user.id,
       userFunction: primaryFunction,
+      marketingRole,
       fluency: fluencyLevel,
       focusAreas,
       plan: plan.plan,

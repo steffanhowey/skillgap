@@ -11,9 +11,11 @@ import { pathWhy } from "@/lib/onboarding/pathWhy";
 import {
   FOCUS_OPTIONS,
   FLUENCY_OPTIONS,
-  FUNCTION_OPTIONS,
+  MARKETING_ROLE_OPTIONS,
+  primaryFunctionForRole,
   type FocusArea,
   type FluencyLevel,
+  type MarketingRole,
   type ProfessionalFunction,
 } from "@/lib/onboarding/types";
 import {
@@ -36,6 +38,7 @@ const QUESTIONS = [
 
 interface SavedProgress {
   step: number;
+  marketingRole: MarketingRole | null;
   primaryFunction: ProfessionalFunction | null;
   fluencyLevel: FluencyLevel | null;
   focusAreas: FocusArea[];
@@ -85,6 +88,9 @@ function OnboardContent() {
   const wizardStartRef = useRef(Date.now());
   const stepStartRef = useRef(Date.now());
 
+  const [marketingRole, setMarketingRole] = useState<MarketingRole | null>(
+    savedProgress.current?.marketingRole ?? null,
+  );
   const [primaryFunction, setPrimaryFunction] =
     useState<ProfessionalFunction | null>(savedProgress.current?.primaryFunction ?? null);
   const [fluencyLevel, setFluencyLevel] = useState<FluencyLevel | null>(
@@ -121,9 +127,9 @@ function OnboardContent() {
     if (isReOnboard) return;
     localStorage.setItem(
       "sg_onboard_progress",
-      JSON.stringify({ step, primaryFunction, fluencyLevel, focusAreas }),
+      JSON.stringify({ step, marketingRole, primaryFunction, fluencyLevel, focusAreas }),
     );
-  }, [step, primaryFunction, fluencyLevel, focusAreas, isReOnboard]);
+  }, [step, marketingRole, primaryFunction, fluencyLevel, focusAreas, isReOnboard]);
 
   const finish = useCallback(
     async (handleOnly = false) => {
@@ -137,6 +143,7 @@ function OnboardContent() {
             handleOnly
               ? { handleOnly: true }
               : {
+                  marketingRole,
                   primaryFunction,
                   fluencyLevel,
                   focusAreas,
@@ -174,7 +181,7 @@ function OnboardContent() {
         setSaving(false);
       }
     },
-    [user, primaryFunction, fluencyLevel, focusAreas, isReOnboard, router],
+    [user, marketingRole, primaryFunction, fluencyLevel, focusAreas, isReOnboard, router],
   );
 
   useEffect(() => {
@@ -184,7 +191,7 @@ function OnboardContent() {
 
   const optionCount =
     step === 0
-      ? FUNCTION_OPTIONS.length
+      ? MARKETING_ROLE_OPTIONS.length
       : step === 1
         ? FLUENCY_OPTIONS.length
         : FOCUS_OPTIONS.length;
@@ -193,8 +200,11 @@ function OnboardContent() {
     (index: number, toggleFocus: boolean) => {
       setActiveIndex(index);
       if (step === 0) {
-        const value = FUNCTION_OPTIONS[index]?.value;
-        if (value) setPrimaryFunction(value);
+        const role = MARKETING_ROLE_OPTIONS[index]?.value;
+        if (role) {
+          setMarketingRole(role);
+          setPrimaryFunction(primaryFunctionForRole(role));
+        }
         return;
       }
       if (step === 1) {
@@ -217,9 +227,9 @@ function OnboardContent() {
   const goNext = useCallback(() => {
     const elapsed = Date.now() - stepStartRef.current;
     if (step === 0) {
-      if (!primaryFunction) return;
-      trackStepCompleted(0, primaryFunction, elapsed);
-      trackFunctionSelected(primaryFunction, []);
+      if (!marketingRole) return;
+      trackStepCompleted(0, marketingRole, elapsed);
+      if (primaryFunction) trackFunctionSelected(primaryFunction, []);
       setStep(1);
       return;
     }
@@ -233,7 +243,7 @@ function OnboardContent() {
     if (focusAreas.length === 0) return;
     trackStepCompleted(2, focusAreas.join(","), elapsed);
     void finish(false);
-  }, [step, primaryFunction, fluencyLevel, focusAreas, finish]);
+  }, [step, marketingRole, primaryFunction, fluencyLevel, focusAreas, finish]);
 
   const skip = useCallback(() => {
     if (step < 2) {
@@ -288,7 +298,7 @@ function OnboardContent() {
   }
 
   const canContinue =
-    step === 0 ? primaryFunction != null : step === 1 ? fluencyLevel != null : focusAreas.length > 0;
+    step === 0 ? marketingRole != null : step === 1 ? fluencyLevel != null : focusAreas.length > 0;
   const progress = step >= 3 ? 100 : ((step + 1) / QUESTIONS.length) * 100;
   const mission = assignment?.path ?? assignment?.interim ?? null;
 
@@ -346,7 +356,7 @@ function OnboardContent() {
         {step === 0 && (
           <FunctionStep
             activeIndex={activeIndex}
-            selected={primaryFunction}
+            selected={marketingRole}
             onChoose={(index) => applyIndex(index, true)}
           />
         )}
