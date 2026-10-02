@@ -59,6 +59,13 @@ export interface QuickCheck {
   correct_answer: string;
   /** Hint shown after first wrong attempt */
   hint: string;
+  /** Authored questions for a role-path check. Graded locally. */
+  questions?: Array<{
+    question: string;
+    options: string[];
+    correct_answer: string;
+    why: string;
+  }>;
 }
 
 /** In-product artifact workshop attached to a taught unit step. */
@@ -213,6 +220,14 @@ export interface CurriculumModule {
   task_count: number;
   /** Estimated duration in seconds */
   duration_seconds: number;
+  /** One sentence a learner can repeat: what this mission practiced. */
+  practices?: string;
+  /** Canonical topic slugs practiced in this mission. */
+  skill_tags?: string[];
+  /** Authoring level for a role path. */
+  level?: "exploring" | "practicing";
+  /** Date the author last tried this mission, YYYY-MM-DD. */
+  tested_on?: string;
 }
 
 /** A complete curriculum-based learning path */
