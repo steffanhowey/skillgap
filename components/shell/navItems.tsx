@@ -2,12 +2,14 @@
 
 /**
  * Shared nav config for Hub sidebar and session menu drawer.
- * Mission-first hub shell:
- * Missions → Profile → Rooms.
+ * Missions → Profile.
+ *
+ * Hidden from navigation (routes and code stay): goals, tasks, commitments,
+ * notes, projects, labels, stats, labs, integrations/GitHub, and rooms.
+ * Rooms stay reachable from inside a mission.
  */
 
 import {
-  PanelsTopLeft,
   Target,
   TrendingUp,
   type LucideIcon,
@@ -23,7 +25,6 @@ export const NAV_ITEMS: Array<{
 }> = [
   { id: "missions", href: "/missions", label: "Missions", icon: Target },
   { id: "progress", href: "/progress", label: "Profile", icon: TrendingUp },
-  { id: "rooms", href: "/rooms", label: "Rooms", icon: PanelsTopLeft },
 ];
 
 /** Set of hrefs that support client-side tab switching (no server round-trip). */

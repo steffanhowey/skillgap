@@ -2,7 +2,7 @@
 
 import { usePathname } from "next/navigation";
 import { ReactNode, useState, useEffect, useCallback, useRef, lazy, Suspense } from "react";
-import { Menu, PanelsTopLeft } from "lucide-react";
+import { Menu } from "lucide-react";
 import { IconButton } from "@/components/ui/IconButton";
 import { Sidebar } from "./Sidebar";
 import { CLIENT_NAV_HREFS } from "./navItems";
@@ -199,17 +199,6 @@ export function HubShell({ children }: { children: ReactNode }) {
                   {title}
                 </span>
               </div>
-              {effectivePath !== "/rooms" && (
-                <button
-                  type="button"
-                  onClick={() => handleNavClick("/rooms")}
-                  className="flex h-10 shrink-0 items-center justify-center gap-2 rounded-[var(--sg-radius-btn)] bg-[var(--sg-forest-500)] px-4 text-white sm:px-5"
-                  aria-label="Open rooms"
-                >
-                  <PanelsTopLeft size={18} strokeWidth={1.8} className="shrink-0" />
-                  <span className="hidden text-sm font-semibold sm:inline">Open Rooms</span>
-                </button>
-              )}
             </div>
           </div>
         )}
