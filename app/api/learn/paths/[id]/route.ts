@@ -116,7 +116,20 @@ export async function GET(
     path.skill_tags = tagMap.get(id) ?? [];
   }
 
-  const canDo = user ? await canDoMission(user.id, id) : true;
+  const currentForAccess = path.items[progress?.current_item_index ?? 0] as
+    | { task_type?: string; module_index?: number; item_id?: string }
+    | undefined;
+  const canDo =
+    user && currentForAccess?.task_type === "do"
+      ? await canDoMission(user.id, id, {
+          moduleIndex: currentForAccess.module_index ?? 0,
+          items: path.items as Array<{
+            item_id?: string;
+            task_type?: string;
+            module_index?: number;
+          }>,
+        })
+      : true;
 
   return NextResponse.json({
     path,
@@ -126,19 +139,21 @@ export async function GET(
   });
 }
 
-function targetsDo(
-  items: Array<{ item_id?: string; task_type?: string }>,
+function targetedDoModule(
+  items: Array<{ item_id?: string; task_type?: string; module_index?: number }>,
   body: { item_completed?: string; item_index?: number },
-): boolean {
+): number | null {
   if (body.item_completed) {
-    return items.some(
-      (item) => item.item_id === body.item_completed && item.task_type === "do",
+    const item = items.find(
+      (entry) => entry.item_id === body.item_completed && entry.task_type === "do",
     );
+    if (!item) return null;
+    return item.module_index ?? 0;
   }
-  if (body.item_index !== undefined) {
-    return items[body.item_index]?.task_type === "do";
+  if (body.item_index !== undefined && items[body.item_index]?.task_type === "do") {
+    return items[body.item_index]?.module_index ?? 0;
   }
-  return false;
+  return null;
 }
 
 /**
@@ -207,12 +222,20 @@ export async function PATCH(
   );
   const pathItems = path.items;
   const itemRefs = pathItems.map((item) => {
-    const row = item as { item_id?: string; task_type?: string };
-    return { item_id: row.item_id, task_type: row.task_type };
+    const row = item as { item_id?: string; task_type?: string; module_index?: number };
+    return {
+      item_id: row.item_id,
+      task_type: row.task_type,
+      module_index: row.module_index,
+    };
   });
 
-  if (targetsDo(itemRefs, body)) {
-    const allowed = await canDoMission(user.id, id);
+  const doModule = targetedDoModule(itemRefs, body);
+  if (doModule !== null) {
+    const allowed = await canDoMission(user.id, id, {
+      moduleIndex: doModule,
+      items: itemRefs,
+    });
     if (!allowed) {
       return NextResponse.json({ error: "payment_required" }, { status: 402 });
     }

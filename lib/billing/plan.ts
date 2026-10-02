@@ -77,13 +77,22 @@ export async function foundingSeatsRemaining(): Promise<number> {
   }
 }
 
+interface MissionAccessTarget {
+  moduleIndex: number;
+  items: Array<{ item_id?: string; task_type?: string; module_index?: number }>;
+}
+
 /**
- * Whether this user may do the mission.
- * A paid plan can do any mission. On free, the earliest started path is the
- * free mission and a later path's Do step is blocked. Lookup errors allow
- * the action so a blip does not paywall everyone.
+ * Whether this user may do this module.
+ * A paid plan can do any module. On free, the first module whose Do step
+ * they reach on a path is the free one. A Do step in another module of that
+ * path is blocked. Lookup errors allow the action so a blip does not paywall everyone.
  */
-export async function canDoMission(userId: string, pathId: string): Promise<boolean> {
+export async function canDoMission(
+  userId: string,
+  pathId: string,
+  target?: MissionAccessTarget,
+): Promise<boolean> {
   const plan = await getPlan(userId);
   if (plan.plan !== "free") return true;
 
@@ -91,22 +100,46 @@ export async function canDoMission(userId: string, pathId: string): Promise<bool
     const admin = createClient();
     const { data, error } = await admin
       .from("fp_learning_progress")
-      .select("path_id")
+      .select("item_states, current_item_index")
       .eq("user_id", userId)
-      .order("started_at", { ascending: true })
-      .limit(1)
-      .maybeSingle();
+      .eq("path_id", pathId)
+      .single();
 
     if (error) {
       console.error("[billing] mission access lookup failed");
       return true;
     }
 
-    const earliest = data?.path_id;
-    if (typeof earliest !== "string" || earliest.length === 0) return true;
-    return earliest === pathId;
+    const row = data as {
+      item_states?: Record<string, { completed?: boolean; skipped?: boolean }>;
+      current_item_index?: number;
+    } | null;
+    const claimed = claimedDoModule(
+      target?.items ?? [],
+      row?.item_states ?? {},
+      row?.current_item_index ?? null,
+    );
+    if (claimed == null) return true;
+    return claimed === (target?.moduleIndex ?? 0);
   } catch (err) {
     console.error("[billing] canDoMission failed", err);
     return true;
   }
+}
+
+function claimedDoModule(
+  items: Array<{ item_id?: string; task_type?: string; module_index?: number }>,
+  itemStates: Record<string, { completed?: boolean; skipped?: boolean }>,
+  currentIndex: number | null,
+): number | null {
+  const started = items.find((item) => {
+    if (item.task_type !== "do" || !item.item_id) return false;
+    const state = itemStates[item.item_id];
+    return !!state && state.skipped !== true;
+  });
+  if (started) return started.module_index ?? 0;
+  if (currentIndex != null && items[currentIndex]?.task_type === "do") {
+    return items[currentIndex].module_index ?? 0;
+  }
+  return null;
 }

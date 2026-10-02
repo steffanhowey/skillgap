@@ -706,15 +706,42 @@ describe("PATCH /api/learn/paths/[id]", () => {
     expect(calculateSkillReceiptMock).not.toHaveBeenCalled();
   });
 
-  it("blocks a later mission's Do step when the plan is free", async () => {
-    fixture.earliestPathId = "path-0";
+  it("allows the first module of a path when the plan is free", async () => {
     fixture.profileRow = { ...fixture.profileRow, plan: "free" };
+    calculateSkillReceiptMock.mockResolvedValue(null);
 
     const response = await PATCH(
       new Request("http://localhost/api/learn/paths/path-1", {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ item_completed: "item-1" }),
+      }),
+      { params: Promise.resolve({ id: "path-1" }) },
+    );
+
+    expect(response.status).not.toBe(402);
+  });
+
+  it("blocks a free user from the Do step of a second module on the same path", async () => {
+    fixture.profileRow = { ...fixture.profileRow, plan: "free" };
+    fixture.pathRow = {
+      ...fixture.pathRow,
+      items: [
+        { item_id: "item-1", task_type: "do", module_index: 0 },
+        { item_id: "item-2", task_type: "watch", module_index: 1 },
+        { item_id: "item-3", task_type: "do", module_index: 1 },
+      ],
+    };
+    fixture.existingProgress = {
+      ...fixture.existingProgress,
+      item_states: { "item-1": { completed: true } },
+    };
+
+    const response = await PATCH(
+      new Request("http://localhost/api/learn/paths/path-1", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ item_completed: "item-3" }),
       }),
       { params: Promise.resolve({ id: "path-1" }) },
     );
