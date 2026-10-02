@@ -1,5 +1,6 @@
 // Generated 2026-08-28 from SkillGap (supabase-skillgap).
 // Slice of public tables created for Track F schema v0.
+// fp_profiles regenerated 2026-10-02 after add_profile_billing.
 // Full project dump was not committed because it includes unrelated HumanDeploy tables.
 
 export type Json =
@@ -403,6 +404,99 @@ export type Database = {
           status?: string
           trace_id?: string
           user_id?: string | null
+        }
+        Relationships: []
+      }
+      fp_profiles: {
+        Row: {
+          avatar_seed: string | null
+          avatar_style_version: number | null
+          avatar_url: string | null
+          created_at: string
+          default_character: string | null
+          display_name: string | null
+          email: string | null
+          first_mission_completed_at: string | null
+          first_name: string | null
+          fluency_level: string | null
+          function_prompt_dismissed_count: number | null
+          id: string
+          is_admin: boolean
+          is_founding: boolean
+          last_name: string | null
+          onboarding_completed: boolean
+          plan: string
+          plan_period_end: string | null
+          plan_status: string | null
+          primary_function: string | null
+          recommended_first_path_id: string | null
+          room_bridge_dismissed: boolean | null
+          room_bridge_shown_at: string | null
+          secondary_functions: string[] | null
+          stripe_customer_id: string | null
+          team_id: string | null
+          updated_at: string
+          username: string | null
+        }
+        Insert: {
+          avatar_seed?: string | null
+          avatar_style_version?: number | null
+          avatar_url?: string | null
+          created_at?: string
+          default_character?: string | null
+          display_name?: string | null
+          email?: string | null
+          first_mission_completed_at?: string | null
+          first_name?: string | null
+          fluency_level?: string | null
+          function_prompt_dismissed_count?: number | null
+          id: string
+          is_admin?: boolean
+          is_founding?: boolean
+          last_name?: string | null
+          onboarding_completed?: boolean
+          plan?: string
+          plan_period_end?: string | null
+          plan_status?: string | null
+          primary_function?: string | null
+          recommended_first_path_id?: string | null
+          room_bridge_dismissed?: boolean | null
+          room_bridge_shown_at?: string | null
+          secondary_functions?: string[] | null
+          stripe_customer_id?: string | null
+          team_id?: string | null
+          updated_at?: string
+          username?: string | null
+        }
+        Update: {
+          avatar_seed?: string | null
+          avatar_style_version?: number | null
+          avatar_url?: string | null
+          created_at?: string
+          default_character?: string | null
+          display_name?: string | null
+          email?: string | null
+          first_mission_completed_at?: string | null
+          first_name?: string | null
+          fluency_level?: string | null
+          function_prompt_dismissed_count?: number | null
+          id?: string
+          is_admin?: boolean
+          is_founding?: boolean
+          last_name?: string | null
+          onboarding_completed?: boolean
+          plan?: string
+          plan_period_end?: string | null
+          plan_status?: string | null
+          primary_function?: string | null
+          recommended_first_path_id?: string | null
+          room_bridge_dismissed?: boolean | null
+          room_bridge_shown_at?: string | null
+          secondary_functions?: string[] | null
+          stripe_customer_id?: string | null
+          team_id?: string | null
+          updated_at?: string
+          username?: string | null
         }
         Relationships: []
       }
