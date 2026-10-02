@@ -32,8 +32,8 @@ const LazyPartyList = lazy(() =>
   import("@/components/party/PartyList").then((m) => ({ default: m.PartyList }))
 );
 
-const LazyProgressPage = lazy(() =>
-  import("@/components/progress/ProgressPage").then((m) => ({ default: m.ProgressPage }))
+const LazyProfilePage = lazy(() =>
+  import("@/components/profile/ProfilePage").then((m) => ({ default: m.ProfilePage }))
 );
 
 const LazyProfileSettings = lazy(() =>
@@ -56,7 +56,7 @@ const TAB_DEFS: Array<{ path: string; render: () => ReactNode }> = [
   { path: "/home", render: () => <LazyHomePage /> },
   { path: "/missions", render: () => <LazyMissionsPage /> },
   { path: "/rooms", render: () => <LazyPartyList /> },
-  { path: "/progress", render: () => <LazyProgressPage /> },
+  { path: "/progress", render: () => <LazyProfilePage /> },
   {
     path: "/settings",
     render: () => <LazyProfileSettings />,
@@ -80,7 +80,7 @@ function usePrefetchTabs(): void {
         import("@/components/home/HomePage").catch(() => {});
         import("@/components/missions/MissionsPage").catch(() => {});
         import("@/components/party/PartyList").catch(() => {});
-        import("@/components/progress/ProgressPage").catch(() => {});
+        import("@/components/profile/ProfilePage").catch(() => {});
         import("@/components/settings/ProfileSettings").catch(() => {});
       },
       { timeout: 3000 },
@@ -199,7 +199,7 @@ export function HubShell({ children }: { children: ReactNode }) {
             </div>
           </div>
         )}
-        <div className={`fp-shell-scroll min-h-0 flex-1 overflow-x-hidden overflow-y-auto px-4 pb-5 md:px-5 md:pb-6 lg:px-6 ${effectivePath === "/home" ? "pt-12" : "pt-4 md:pt-5"}`}>
+        <div className={`fp-shell-scroll min-h-0 flex-1 overflow-x-hidden overflow-y-auto px-4 pb-5 md:px-5 md:pb-6 lg:px-6 ${effectivePath === "/home" || effectivePath === "/progress" ? "pt-12" : "pt-4 md:pt-5"}`}>
           <div className="mx-auto w-full" style={{ maxWidth: "var(--sg-max-width)" }}>
             {/*
              * Keep-alive tabs: once a tab is visited, it stays mounted (hidden via display:none).

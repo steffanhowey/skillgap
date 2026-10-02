@@ -1,9 +1,5 @@
-import { ProgressPage } from "@/components/progress/ProgressPage";
+import { ProfilePage } from "@/components/profile/ProfilePage";
 
 export default function Progress() {
-  return (
-    <main className="flex-1">
-      <ProgressPage />
-    </main>
-  );
+  return <ProfilePage />;
 }
