@@ -287,6 +287,14 @@ export interface ItemState {
   attempts?: number;
   /** Whether the user skipped this task */
   skipped?: boolean;
+  /** Tool the learner actually used on a do step. */
+  tool_used?: string;
+  /** Optional link to the work. URL only. */
+  artifact_url?: string;
+  /** Did they use this on real work? */
+  self_check?: "yes" | "partly" | "not_yet";
+  /** How many check questions they got right. */
+  check_score?: number;
 }
 
 /** User progress through a learning path */

@@ -1,9 +1,9 @@
 "use client";
 
-import { useCallback, useEffect, useRef } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { ArrowLeft, ArrowRight } from "lucide-react";
+import { ArrowRight, X } from "lucide-react";
 import { ContentViewer } from "@/components/learn/ContentViewer";
 import { MethodCard } from "@/components/learn/MethodCard";
 import { ProjectExperienceShell } from "@/components/learn/ProjectExperienceShell";
@@ -33,15 +33,41 @@ import { TAUGHT_HERO_ITEM_IDS } from "@/lib/learn/taughtHero/types";
 import { isTaughtHeroPath } from "@/lib/learn/taughtHero/unit";
 import { useLearnProgress } from "@/lib/useLearnProgress";
 import { usePostCompletionRecommendations } from "@/lib/usePostCompletionRecommendations";
-import type { ItemState, PathItem } from "@/lib/types";
+import type { CurriculumModule, ItemState, LearningPath, PathItem } from "@/lib/types";
 
 interface SoloMissionPlayerProps {
   pathId: string;
   initialStepIndex?: number | null;
 }
 
+function missionStepLabel(item: PathItem | null): string {
+  if (item?.task_type === "do") return "Do";
+  if (item?.task_type === "check") return "Check";
+  if (item?.task_type === "reflect") return "Reflect";
+  return "Watch";
+}
+
 function getItemKey(item: PathItem, index: number): string {
   return item.item_id ?? item.content_id ?? `idx-${index}`;
+}
+
+function modulesFor(path: LearningPath): CurriculumModule[] {
+  if (path.modules && path.modules.length > 0) return path.modules;
+  const seen = new Set<number>();
+  const modules: CurriculumModule[] = [];
+  for (const item of path.items) {
+    const index = item.module_index ?? 0;
+    if (seen.has(index)) continue;
+    seen.add(index);
+    modules.push({
+      index,
+      title: item.title,
+      description: item.connective_text,
+      task_count: path.items.filter((entry) => (entry.module_index ?? 0) === index).length,
+      duration_seconds: 0,
+    });
+  }
+  return modules;
 }
 
 /**
@@ -71,6 +97,7 @@ export function SoloMissionPlayer({
       enabled: isCompleted,
     });
   const syncedStepRef = useRef<string | null>(null);
+  const [finishedModule, setFinishedModule] = useState<number | null>(null);
 
   useEffect(() => {
     if (initialStepIndex == null || !path || isLoading) {
@@ -120,6 +147,29 @@ export function SoloMissionPlayer({
     taughtHero && currentItem?.task_type === "do"
       ? "Do"
       : getMissionStepKindLabel(currentItem);
+  const missionModules = path ? modulesFor(path) : [];
+  const activeModuleIndex = currentItem?.module_index ?? finishedModule ?? 0;
+  const missionNumber = Math.max(
+    1,
+    missionModules.findIndex((module) => module.index === activeModuleIndex) + 1,
+  );
+  const missionCount = Math.max(missionModules.length, 1);
+  const moduleSteps = path
+    ? path.items.filter((item) => (item.module_index ?? 0) === activeModuleIndex)
+    : [];
+  const moduleStepNumber = Math.max(
+    1,
+    moduleSteps.findIndex((item) => item.item_id === currentItem?.item_id) + 1,
+  );
+  const moduleProgress =
+    moduleSteps.length === 0
+      ? 0
+      : Math.round((moduleStepNumber / moduleSteps.length) * 100);
+  const finished = missionModules.find((module) => module.index === finishedModule) ?? null;
+  const nextModule =
+    finishedModule == null
+      ? null
+      : missionModules.find((module) => module.index > finishedModule) ?? null;
   const stepCount = path?.items.length ?? 0;
   const stepNumber = stepCount === 0 ? 0 : Math.min(currentItemIndex + 1, stepCount);
   const progressPercent =
@@ -142,19 +192,49 @@ export function SoloMissionPlayer({
     await advanceToItem(currentItemIndex + 1);
   }, [advanceToItem, currentItemIndex, path]);
 
+  const finishStep = useCallback(
+    async (stateData?: Partial<ItemState>) => {
+      if (!currentItemKey || !path || !currentItem) return;
+      const saved = await completeItem(currentItemKey, stateData);
+      if (!saved) return;
+      const moduleIndex = currentItem.module_index ?? 0;
+      const steps = path.items
+        .map((item, index) => ({ item, index }))
+        .filter(({ item }) => (item.module_index ?? 0) === moduleIndex);
+      const last = steps[steps.length - 1];
+      if (!taughtHero && last && last.index === currentItemIndex) {
+        setFinishedModule(moduleIndex);
+        return;
+      }
+      if (taughtHero) {
+        await advanceAfterStep();
+        return;
+      }
+      if (currentItemIndex + 1 < path.items.length) {
+        await advanceToItem(currentItemIndex + 1);
+      }
+    },
+    [
+      advanceAfterStep,
+      advanceToItem,
+      completeItem,
+      currentItem,
+      currentItemIndex,
+      currentItemKey,
+      path,
+      taughtHero,
+    ],
+  );
+
   const handleComplete = useCallback(async () => {
-    if (!currentItemKey) return;
-    await completeItem(currentItemKey);
-    await advanceAfterStep();
-  }, [advanceAfterStep, completeItem, currentItemKey]);
+    await finishStep();
+  }, [finishStep]);
 
   const handleCompleteWithState = useCallback(
     async (stateData: Partial<ItemState>) => {
-      if (!currentItemKey) return;
-      await completeItem(currentItemKey, stateData);
-      await advanceAfterStep();
+      await finishStep(stateData);
     },
-    [advanceAfterStep, completeItem, currentItemKey],
+    [finishStep],
   );
 
   const workshopSubmission =
@@ -237,39 +317,24 @@ export function SoloMissionPlayer({
   return (
     <div className="min-h-screen bg-[var(--sg-shell-50)]">
       <header className="border-b border-[var(--sg-shell-border)] bg-[var(--sg-white)]">
-        <div className="mx-auto flex max-w-[880px] items-center justify-between gap-4 px-4 py-4 sm:px-6">
-          <div className="min-w-0 space-y-1">
-            <Link
-              href={MISSIONS_ROUTE}
-              className="inline-flex items-center gap-1.5 text-sm font-medium text-[var(--sg-shell-600)] transition-colors hover:text-[var(--sg-shell-900)]"
-            >
-              <ArrowLeft size={14} />
-              Missions
-            </Link>
-            <h1 className="truncate text-lg font-semibold text-[var(--sg-shell-900)]">
-              {playerTitle}
-            </h1>
-          </div>
-          {path && !isCompleted ? (
-            <Link
-              href={briefingHref}
-              className="shrink-0 text-sm text-[var(--sg-shell-500)] transition-colors hover:text-[var(--sg-shell-900)]"
-            >
-              Brief
-            </Link>
-          ) : null}
-        </div>
-        {path && !isCompleted ? (
-          <div
-            className="h-1 w-full bg-[var(--sg-shell-100)]"
-            aria-hidden="true"
+        <div className="mx-auto flex max-w-[880px] items-center justify-between gap-4 px-4 py-3 sm:px-6">
+          <p className="text-sm font-medium text-[var(--sg-shell-900)]">
+            Mission {missionNumber} of {missionCount} · {finished ? "Done" : missionStepLabel(currentItem)}
+          </p>
+          <Link
+            href={briefingHref}
+            aria-label="Close"
+            className="text-[var(--sg-shell-500)] transition-colors hover:text-[var(--sg-shell-900)]"
           >
-            <div
-              className="h-full bg-[var(--sg-forest-500)] transition-[width] duration-300"
-              style={{ width: `${progressPercent}%` }}
-            />
-          </div>
-        ) : null}
+            <X size={16} />
+          </Link>
+        </div>
+        <div className="h-1 w-full bg-[var(--sg-shell-100)]" aria-hidden="true">
+          <div
+            className="h-full bg-[var(--sg-forest-500)] transition-[width] duration-300"
+            style={{ width: `${finished ? 100 : moduleProgress}%` }}
+          />
+        </div>
       </header>
 
       <main className="mx-auto max-w-[880px] px-4 py-6 sm:px-6 sm:py-8">
@@ -294,6 +359,40 @@ export function SoloMissionPlayer({
             >
               Back to Missions
             </Button>
+          </Card>
+        ) : finished ? (
+          <Card className="space-y-4 p-6">
+            <h2 className="text-2xl font-semibold text-[var(--sg-shell-900)]">
+              Mission complete
+            </h2>
+            <p className="text-sm leading-6 text-[var(--sg-shell-700)]">
+              {finished.practices ?? finished.description}
+            </p>
+            <p className="text-sm text-[var(--sg-shell-600)]">Practiced today.</p>
+            <div className="flex flex-wrap gap-3 pt-2">
+              {nextModule ? (
+                <Button
+                  variant="cta"
+                  size="sm"
+                  onClick={() => {
+                    const nextIndex = path.items.findIndex(
+                      (item) => (item.module_index ?? 0) === nextModule.index,
+                    );
+                    setFinishedModule(null);
+                    if (nextIndex >= 0) void advanceToItem(nextIndex);
+                  }}
+                >
+                  Next mission
+                </Button>
+              ) : null}
+              <Button
+                variant={nextModule ? "outline" : "cta"}
+                size="sm"
+                onClick={() => router.push(briefingHref)}
+              >
+                Back to your path
+              </Button>
+            </div>
           </Card>
         ) : isCompleted ? (
           <div className="space-y-6">
@@ -362,14 +461,9 @@ export function SoloMissionPlayer({
           </div>
         ) : currentItem ? (
           <div className="space-y-5">
-            <div className="space-y-2">
-              <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-[var(--sg-forest-500)]">
-                Step {stepNumber} of {stepCount} · {stepKind}
-              </p>
-              <p className="text-base leading-7 text-[var(--sg-shell-900)]">
-                {coachingLine}
-              </p>
-            </div>
+            <p className="text-base leading-7 text-[var(--sg-shell-900)]">
+              {coachingLine}
+            </p>
 
             <div className="min-h-[420px]">
               {showPaywall ? (

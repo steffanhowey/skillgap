@@ -25,7 +25,7 @@ interface UseLearnProgressReturn {
   currentItemIndex: number;
   isLoading: boolean;
   error: string | null;
-  completeItem: (contentId: string, stateData?: Partial<ItemState>) => Promise<void>;
+  completeItem: (contentId: string, stateData?: Partial<ItemState>) => Promise<boolean>;
   advanceToItem: (index: number) => Promise<void>;
   isCompleted: boolean;
   percentComplete: number;
@@ -239,7 +239,7 @@ export function useLearnProgress(
 
   const completeItem = useCallback(
     async (contentId: string, stateData?: Partial<ItemState>) => {
-      if (!pathId) return;
+      if (!pathId) return false;
 
       const isSkipped = stateData?.skipped === true;
 
@@ -309,7 +309,7 @@ export function useLearnProgress(
               completed_at: null,
             };
           });
-          return;
+          return false;
         }
         const data = await res.json();
         if (data.progress) setProgress(data.progress);
@@ -327,6 +327,7 @@ export function useLearnProgress(
       } catch {
         // Optimistic update already applied
       }
+      return true;
     },
     [pathId, path, currentItemIndex]
   );

@@ -64,7 +64,95 @@ const GUIDANCE_LABELS: Record<string, string> = {
  * Renders "do" task items — the Tool Mission 4-phase interactive experience.
  * Reads from item.mission (MissionBriefing) for all structured data.
  */
-export function MissionViewer({
+const DO_TOOLS = ["ChatGPT", "Claude", "Gemini", "Copilot", "Perplexity", "Other"] as const;
+
+function defaultTool(name: string): string {
+  const match = DO_TOOLS.find((tool) => tool.toLowerCase() === name.toLowerCase());
+  return match ?? "Other";
+}
+
+/**
+ * Solo mission Do step. The learner picks a tool and continues.
+ * No review of the work.
+ */
+function MissionDoStep({
+  item,
+  isCompleted,
+  onComplete,
+}: {
+  item: PathItem;
+  isCompleted: boolean;
+  onComplete: (stateData: Partial<ItemState>) => void;
+}) {
+  const mission = item.mission!;
+  const [tool, setTool] = useState(defaultTool(mission.tool.name));
+  const [artifactUrl, setArtifactUrl] = useState("");
+  const doneWhen = mission.success_criteria[0] ?? "";
+
+  return (
+    <div className="space-y-5">
+      <div className="space-y-2">
+        <p className="text-sm font-medium text-[var(--sg-shell-900)]">{mission.tool.name}</p>
+        <p className="text-base leading-7 text-[var(--sg-shell-900)]">{mission.objective}</p>
+      </div>
+      <ol className="list-decimal space-y-2 pl-5 text-sm leading-6 text-[var(--sg-shell-700)]">
+        {mission.steps.map((step) => (
+          <li key={step}>{step}</li>
+        ))}
+      </ol>
+      {doneWhen ? (
+        <p className="text-sm leading-6 text-[var(--sg-shell-600)]">
+          <span className="font-medium text-[var(--sg-shell-900)]">Done when. </span>
+          {doneWhen}
+        </p>
+      ) : null}
+      <label className="block space-y-1.5">
+        <span className="text-sm font-medium text-[var(--sg-shell-900)]">Tool</span>
+        <select
+          value={tool}
+          onChange={(event) => setTool(event.target.value)}
+          className="w-full rounded-[var(--sg-radius-md)] border border-[var(--sg-shell-border)] bg-[var(--sg-white)] px-3 py-2 text-sm text-[var(--sg-shell-900)]"
+        >
+          {DO_TOOLS.map((option) => (
+            <option key={option} value={option}>
+              {option}
+            </option>
+          ))}
+        </select>
+      </label>
+      <label className="block space-y-1.5">
+        <span className="text-sm font-medium text-[var(--sg-shell-900)]">Link to what you made</span>
+        <input
+          type="url"
+          inputMode="url"
+          placeholder="https://"
+          value={artifactUrl}
+          onChange={(event) => setArtifactUrl(event.target.value)}
+          className="w-full rounded-[var(--sg-radius-md)] border border-[var(--sg-shell-border)] bg-[var(--sg-white)] px-3 py-2 text-sm text-[var(--sg-shell-900)]"
+        />
+      </label>
+      <p className="text-xs leading-5 text-[var(--sg-shell-500)]">
+        Your work stays yours. This is a link, not an upload.
+      </p>
+      <Button
+        variant="cta"
+        size="sm"
+        disabled={isCompleted}
+        onClick={() => {
+          const url = artifactUrl.trim();
+          onComplete({
+            tool_used: tool,
+            artifact_url: url.startsWith("http://") || url.startsWith("https://") ? url : undefined,
+          });
+        }}
+      >
+        Continue
+      </Button>
+    </div>
+  );
+}
+
+function MissionViewerPhases({
   item,
   isCompleted,
   onComplete,
@@ -801,6 +889,23 @@ export function MissionViewer({
       )}
     </div>
   );
+}
+
+/**
+ * Do step. The solo mission page uses the short loop.
+ * Rooms keep the existing briefing.
+ */
+export function MissionViewer(props: MissionViewerProps) {
+  if (props.variant === "missionPage" && props.item.mission) {
+    return (
+      <MissionDoStep
+        item={props.item}
+        isCompleted={props.isCompleted}
+        onComplete={props.onComplete}
+      />
+    );
+  }
+  return <MissionViewerPhases {...props} />;
 }
 
 // ─── Sub-components ──────────────────────────────────────────

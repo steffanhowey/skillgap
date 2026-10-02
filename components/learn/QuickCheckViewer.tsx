@@ -40,7 +40,169 @@ const QUALITY_COLORS: Record<string, string> = {
  * Renders "check" task items — quick comprehension checks
  * with multiple choice or free-text answers.
  */
-export function QuickCheckViewer({
+interface AuthoredQuestion {
+  question: string;
+  options: string[];
+  correct_answer: string;
+  why: string;
+}
+
+/**
+ * Solo mission check. Grades the authored answers on the page,
+ * then asks whether the learner used it on real work.
+ */
+function MissionCheckStep({
+  item,
+  isCompleted,
+  onComplete,
+}: {
+  item: PathItem;
+  isCompleted: boolean;
+  onComplete: (stateData: Partial<ItemState>) => void;
+}) {
+  const check = item.check!;
+  const questions: AuthoredQuestion[] =
+    check.questions && check.questions.length > 0
+      ? check.questions
+      : [
+          {
+            question: check.question,
+            options: check.options ?? [],
+            correct_answer: check.correct_answer,
+            why: check.hint,
+          },
+        ];
+  const [index, setIndex] = useState(0);
+  const [picked, setPicked] = useState("");
+  const [revealed, setRevealed] = useState(false);
+  const [showWhy, setShowWhy] = useState(false);
+  const [correctCount, setCorrectCount] = useState(0);
+  const [selfCheck, setSelfCheck] = useState<"yes" | "partly" | "not_yet" | "">("");
+  const question = questions[index];
+  const onSelfCheck = index >= questions.length;
+
+  const grade = () => {
+    if (!question || !picked) return;
+    const correct = picked === question.correct_answer;
+    if (correct) setCorrectCount((count) => count + 1);
+    setRevealed(true);
+    setShowWhy(false);
+  };
+
+  const goNext = () => {
+    if (index + 1 >= questions.length) {
+      setIndex(questions.length);
+      setPicked("");
+      setRevealed(false);
+      return;
+    }
+    setIndex((current) => current + 1);
+    setPicked("");
+    setRevealed(false);
+    setShowWhy(false);
+  };
+
+  if (onSelfCheck) {
+    return (
+      <div className="space-y-5">
+        <p className="text-base leading-7 text-[var(--sg-shell-900)]">
+          Did you use this on real work?
+        </p>
+        <div className="space-y-2">
+          {(
+            [
+              ["yes", "Yes"],
+              ["partly", "Partly"],
+              ["not_yet", "Not yet"],
+            ] as const
+          ).map(([value, label]) => (
+            <button
+              key={value}
+              type="button"
+              onClick={() => setSelfCheck(value)}
+              className={`w-full rounded-[var(--sg-radius-md)] border px-3 py-2 text-left text-sm ${
+                selfCheck === value
+                  ? "border-[var(--sg-forest-500)] text-[var(--sg-shell-900)]"
+                  : "border-[var(--sg-shell-border)] text-[var(--sg-shell-700)]"
+              }`}
+            >
+              {label}
+            </button>
+          ))}
+        </div>
+        <Button
+          variant="cta"
+          size="sm"
+          disabled={isCompleted || !selfCheck}
+          onClick={() => {
+            if (!selfCheck) return;
+            onComplete({ self_check: selfCheck, check_score: correctCount });
+          }}
+        >
+          Continue
+        </Button>
+      </div>
+    );
+  }
+
+  const correct = revealed && picked === question?.correct_answer;
+
+  return (
+    <div className="space-y-5">
+      <p className="text-base leading-7 text-[var(--sg-shell-900)]">{question?.question}</p>
+      <div className="space-y-2">
+        {question?.options.map((option) => (
+          <button
+            key={option}
+            type="button"
+            disabled={revealed}
+            onClick={() => setPicked(option)}
+            className={`w-full rounded-[var(--sg-radius-md)] border px-3 py-2 text-left text-sm ${
+              picked === option
+                ? "border-[var(--sg-forest-500)] text-[var(--sg-shell-900)]"
+                : "border-[var(--sg-shell-border)] text-[var(--sg-shell-700)]"
+            }`}
+          >
+            {option}
+          </button>
+        ))}
+      </div>
+      {revealed ? (
+        <div className="space-y-2">
+          <p className="text-sm font-medium text-[var(--sg-shell-900)]">
+            {correct ? "That's correct" : "Incorrect"}
+          </p>
+          <button
+            type="button"
+            onClick={() => setShowWhy((open) => !open)}
+            className="text-sm text-[var(--sg-shell-600)] underline"
+          >
+            See why
+          </button>
+          {showWhy ? (
+            <p className="text-sm leading-6 text-[var(--sg-shell-600)]">{question?.why}</p>
+          ) : null}
+        </div>
+      ) : null}
+      <Button
+        variant="cta"
+        size="sm"
+        disabled={!picked}
+        onClick={() => {
+          if (!revealed) {
+            grade();
+            return;
+          }
+          goNext();
+        }}
+      >
+        Continue
+      </Button>
+    </div>
+  );
+}
+
+function QuickCheckViewerPhases({
   item,
   isCompleted,
   onComplete,
@@ -396,4 +558,21 @@ export function QuickCheckViewer({
       </Card>
     </div>
   );
+}
+
+/**
+ * Check step. The solo mission page grades the authored answers.
+ * Rooms keep the existing evaluator.
+ */
+export function QuickCheckViewer(props: QuickCheckViewerProps) {
+  if (props.variant === "missionPage" && props.item.check) {
+    return (
+      <MissionCheckStep
+        item={props.item}
+        isCompleted={props.isCompleted}
+        onComplete={props.onComplete}
+      />
+    );
+  }
+  return <QuickCheckViewerPhases {...props} />;
 }

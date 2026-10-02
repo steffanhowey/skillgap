@@ -141,6 +141,7 @@ export function ContentViewer({
         <div className="space-y-4">
           {item.connective_text ? (
             <p className="text-sm leading-6 text-[var(--sg-shell-600)]">
+              <span className="font-medium text-[var(--sg-shell-900)]">What to look for. </span>
               {item.connective_text}
             </p>
           ) : null}
@@ -168,7 +169,7 @@ export function ContentViewer({
               onClick={onComplete}
               disabled={isCompleted}
             >
-              {isCompleted ? "Completed" : "I got the idea"}
+              {isCompleted ? "Completed" : "Continue"}
             </Button>
           </div>
         </div>

@@ -36,10 +36,50 @@ const QUALITY_COLORS: Record<string, string> = {
 // ─── Component ──────────────────────────────────────────────
 
 /**
+ * Solo mission reflection. Two lines, private, no review.
+ */
+function MissionReflectStep({
+  item,
+  isCompleted,
+  onComplete,
+}: {
+  item: PathItem;
+  isCompleted: boolean;
+  onComplete: (stateData: Partial<ItemState>) => void;
+}) {
+  const [response, setResponse] = useState("");
+
+  return (
+    <div className="space-y-4">
+      <p className="text-base leading-7 text-[var(--sg-shell-900)]">
+        {item.reflection?.prompt}
+      </p>
+      <textarea
+        rows={2}
+        value={response}
+        onChange={(event) => setResponse(event.target.value)}
+        className="w-full resize-none rounded-[var(--sg-radius-md)] border border-[var(--sg-shell-border)] bg-[var(--sg-white)] px-3 py-2 text-sm leading-6 text-[var(--sg-shell-900)]"
+      />
+      <p className="text-xs leading-5 text-[var(--sg-shell-500)]">
+        Private. Only you can read this.
+      </p>
+      <Button
+        variant="cta"
+        size="sm"
+        disabled={isCompleted}
+        onClick={() => onComplete({ submission_text: response.trim() })}
+      >
+        Continue
+      </Button>
+    </div>
+  );
+}
+
+/**
  * Renders "reflect" task items — contemplative reflection prompts
  * with AI-evaluated depth feedback.
  */
-export function ReflectionViewer({
+function ReflectionViewerPhases({
   item,
   isCompleted,
   onComplete,
@@ -302,4 +342,21 @@ export function ReflectionViewer({
       </Card>
     </div>
   );
+}
+
+/**
+ * Reflect step. The solo mission page saves the note.
+ * Rooms keep the existing evaluator.
+ */
+export function ReflectionViewer(props: ReflectionViewerProps) {
+  if (props.variant === "missionPage" && props.item.reflection) {
+    return (
+      <MissionReflectStep
+        item={props.item}
+        isCompleted={props.isCompleted}
+        onComplete={props.onComplete}
+      />
+    );
+  }
+  return <ReflectionViewerPhases {...props} />;
 }
