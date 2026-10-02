@@ -73,6 +73,11 @@ const LazyReviewQueueView = lazy(() =>
     default: m.ReviewQueueView,
   }))
 );
+const LazyPathReviewTable = lazy(() =>
+  import("@/components/admin/review/PathReviewTable").then((m) => ({
+    default: m.PathReviewTable,
+  }))
+);
 const LazyTopicsView = lazy(() =>
   import("@/components/admin/topics/TopicsView").then((m) => ({
     default: m.TopicsView,
@@ -147,6 +152,7 @@ function renderTabContent(tab: string): ReactNode {
     case "/admin/review":
       return (
         <Suspense fallback={null}>
+          <LazyPathReviewTable />
           <LazyReviewQueueView />
         </Suspense>
       );

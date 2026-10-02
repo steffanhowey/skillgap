@@ -1,7 +1,10 @@
+import { after } from "next/server";
 import { NextResponse } from "next/server";
 import { createClient as createServerClient } from "@/lib/supabase/server";
 import { createClient as createAdminClient } from "@/lib/supabase/admin";
+import { getPlan } from "@/lib/billing/plan";
 import { allocateHandle } from "@/lib/onboarding/allocateHandle";
+import { assignFirstPath } from "@/lib/onboarding/assignFirstPath";
 import {
   FUNCTION_OPTIONS,
   FLUENCY_OPTIONS,
@@ -95,10 +98,31 @@ export async function POST(request: Request): Promise<NextResponse> {
     return NextResponse.json({ error: "save_failed" }, { status: 500 });
   }
 
+  const plan = await getPlan(user.id);
+  const assignment = await assignFirstPath(
+    {
+      userId: user.id,
+      userFunction: primaryFunction,
+      fluency: fluencyLevel,
+      focusAreas,
+      plan: plan.plan,
+    },
+    { defer: (work) => after(() => work()) },
+  );
+
+  const recommendedPathId = assignment.path?.pathId ?? assignment.interim?.pathId ?? null;
+  if (recommendedPathId) {
+    await admin
+      .from("fp_profiles")
+      .update({ recommended_first_path_id: recommendedPathId })
+      .eq("id", user.id);
+  }
+
   return NextResponse.json({
     username,
     primaryFunction,
     fluencyLevel,
     focusAreas,
+    assignment,
   });
 }
