@@ -2,7 +2,7 @@
 
 /**
  * Shared nav config for Hub sidebar and session menu drawer.
- * Home → Missions → Profile.
+ * Home → Profile. Missions stays at /missions and is not in the nav.
  *
  * Hidden from navigation (routes and code stay): goals, tasks, commitments,
  * notes, projects, labels, stats, labs, integrations/GitHub, and rooms.
@@ -11,7 +11,6 @@
 
 import {
   House,
-  Target,
   TrendingUp,
   type LucideIcon,
 } from "lucide-react";
@@ -25,7 +24,6 @@ export const NAV_ITEMS: Array<{
   icon: LucideIcon;
 }> = [
   { id: "home", href: "/home", label: "Home", icon: House },
-  { id: "missions", href: "/missions", label: "Missions", icon: Target },
   { id: "progress", href: "/progress", label: "Profile", icon: TrendingUp },
 ];
 

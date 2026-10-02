@@ -84,7 +84,7 @@ export function ProfilePage() {
 
         <section className="space-y-4">
           <h2 className="text-[22px] font-semibold leading-7 text-[var(--sg-shell-900)]">
-            What you&apos;ve practiced.
+            What you&apos;ve practiced
           </h2>
           {payload.records.length === 0 ? (
             <p className="text-sm leading-6 text-[var(--sg-shell-600)]">
@@ -158,7 +158,7 @@ export function ProfilePage() {
       <div className="w-full lg:w-[288px] lg:shrink-0">
         <Card className="bg-[var(--sg-white)] p-4" style={{ borderRadius: "var(--sg-radius-lg)" }}>
           <h2 className="text-sm font-semibold text-[var(--sg-shell-900)]">Practice calendar</h2>
-          <div className="mt-4 grid grid-cols-7 gap-1" aria-hidden>
+          <div className="mt-4 grid w-fit grid-flow-col grid-rows-7 gap-1" aria-hidden>
             {payload.calendar.flat().map((day) => (
               <span
                 key={day.date}

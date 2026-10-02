@@ -150,10 +150,9 @@ function MissionCard({ mission }: { mission: ThisWeekMission }) {
       {mission.practices ? (
         <p className="text-sm leading-6 text-[var(--sg-shell-700)]">{mission.practices}</p>
       ) : null}
-      {mission.tool ? (
-        <p className="text-sm text-[var(--sg-shell-700)]">{mission.tool}</p>
-      ) : null}
-      <p className="text-sm text-[var(--sg-shell-500)]">{mission.stepsLabel}</p>
+      <p className="text-sm text-[var(--sg-shell-500)]">
+        {mission.tool ? `In ${mission.tool} · ${mission.stepsLabel}` : mission.stepsLabel}
+      </p>
       {mission.state === "continue" && mission.stoppedAt ? (
         <p className="text-sm text-[var(--sg-shell-700)]">You stopped at {mission.stoppedAt}.</p>
       ) : null}
@@ -189,7 +188,9 @@ function ChecklistCard({ rows }: { rows: GettingStartedRow[] }) {
             ) : (
               <span className="h-3.5 w-3.5 shrink-0" aria-hidden />
             )}
-            <span className="truncate text-sm text-[var(--sg-shell-700)]">{row.label}</span>
+            <span className="whitespace-nowrap text-[12px] leading-4 text-[var(--sg-shell-700)]">
+              {row.label}
+            </span>
           </div>
         ))}
       </div>
@@ -204,14 +205,13 @@ function StreakCard({
   streak: WeeklyStreak;
   weekStarts: string[];
 }) {
-  const width = 22 + 7 * 36;
   return (
     <Card className="bg-[var(--sg-white)] p-4" style={{ borderRadius: "var(--sg-radius-lg)" }}>
       <h2 className="text-sm font-semibold text-[var(--sg-shell-900)]">{streakTitle(streak.count)}</h2>
       <p className="mt-1 text-sm leading-5 text-[var(--sg-shell-500)]">
         A week counts when you finish one mission.
       </p>
-      <div className="relative mt-4 h-[22px]" style={{ width }}>
+      <div className="mt-4 flex items-center justify-between">
         {streak.lastEightWeeks.map((filled, index) => {
           const current = index === streak.lastEightWeeks.length - 1;
           const className = filled
@@ -222,13 +222,12 @@ function StreakCard({
           return (
             <span
               key={weekStarts[index] ?? index}
-              className={`absolute top-0 block h-[22px] w-[22px] rounded-full ${className}`}
-              style={{ left: index * 36 }}
+              className={`block h-[22px] w-[22px] shrink-0 rounded-full ${className}`}
             />
           );
         })}
       </div>
-      <div className="mt-2 flex justify-between text-xs text-[var(--sg-shell-500)]" style={{ width }}>
+      <div className="mt-2 flex justify-between text-xs text-[var(--sg-shell-500)]">
         <span>{weekStarts[0] ? formatWeekStart(weekStarts[0]) : ""}</span>
         <span>This week</span>
       </div>

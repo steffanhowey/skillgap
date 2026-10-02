@@ -64,6 +64,13 @@ export function Sidebar({ collapsed = false, onNavClick }: SidebarProps) {
     .split(/[\s._-]+/)
     .map((w: string) => w.charAt(0).toUpperCase() + w.slice(1))
     .join(" ");
+  const handle = username
+    ? username.startsWith("@")
+      ? username
+      : `@${username}`
+    : null;
+  const accountName = displayName === "Guest" && handle ? handle : displayName;
+  const accountInitial = (handle ?? accountName).replace(/^@/, "").charAt(0).toUpperCase();
   const planLabel = PLAN_LABELS[STUB_PLAN];
 
   const activeId =
@@ -229,7 +236,7 @@ export function Sidebar({ collapsed = false, onNavClick }: SidebarProps) {
               aria-expanded={profileMenuOpen}
               aria-haspopup="true"
               aria-label="Profile menu"
-              title={username ? `@${username}` : `${displayName} · ${planLabel}`}
+              title={handle ?? `${accountName} · ${planLabel}`}
             >
               {avatarUrl ? (
                 // eslint-disable-next-line @next/next/no-img-element
@@ -249,7 +256,7 @@ export function Sidebar({ collapsed = false, onNavClick }: SidebarProps) {
                     fontSize: 14,
                   }}
                 >
-                  {displayName.charAt(0).toUpperCase()}
+                  {accountInitial}
                 </div>
               )}
             </button>
@@ -407,15 +414,15 @@ export function Sidebar({ collapsed = false, onNavClick }: SidebarProps) {
                     fontSize: 14,
                   }}
                 >
-                  {displayName.charAt(0).toUpperCase()}
+                  {accountInitial}
                 </div>
               )}
               <div className="min-w-0 flex-1 text-left">
                 <p className="truncate text-sm font-medium text-[var(--sg-shell-900)]">
-                  {displayName}
+                  {accountName}
                 </p>
                 <p className="truncate text-xs font-medium text-[var(--sg-shell-500)]">
-                  {username ? `@${username}` : planLabel}
+                  {displayName === "Guest" && handle ? planLabel : handle ?? planLabel}
                 </p>
               </div>
               <span className="shrink-0 text-[var(--sg-shell-500)]">
