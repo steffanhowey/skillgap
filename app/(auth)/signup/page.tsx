@@ -185,6 +185,13 @@ export default function SignUpPage() {
         <Suspense>
           <SignUpForm />
         </Suspense>
+        <p className="mt-8 text-center text-xs text-[var(--sg-shell-500)]">
+          <Link href="/terms" className="hover:text-[var(--sg-shell-900)]">Terms</Link>
+          {" · "}
+          <Link href="/privacy" className="hover:text-[var(--sg-shell-900)]">Privacy</Link>
+          {" · "}
+          <Link href="/refund" className="hover:text-[var(--sg-shell-900)]">Refund policy</Link>
+        </p>
       </main>
     </div>
   );

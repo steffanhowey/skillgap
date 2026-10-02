@@ -39,10 +39,6 @@ const LazyProfileSettings = lazy(() =>
   import("@/components/settings/ProfileSettings").then((m) => ({ default: m.ProfileSettings }))
 );
 
-const LazyIntegrationSettings = lazy(() =>
-  import("@/components/settings/IntegrationSettings").then((m) => ({ default: m.IntegrationSettings }))
-);
-
 const LazyMissionsPage = lazy(() =>
   import("@/components/missions/MissionsPage").then((m) => ({ default: m.MissionsPage }))
 );
@@ -57,12 +53,7 @@ const TAB_DEFS: Array<{ path: string; render: () => ReactNode }> = [
   { path: "/progress", render: () => <LazyProgressPage /> },
   {
     path: "/settings",
-    render: () => (
-      <>
-        <LazyProfileSettings />
-        <LazyIntegrationSettings />
-      </>
-    ),
+    render: () => <LazyProfileSettings />,
   },
 ];
 
@@ -84,7 +75,6 @@ function usePrefetchTabs(): void {
         import("@/components/party/PartyList").catch(() => {});
         import("@/components/progress/ProgressPage").catch(() => {});
         import("@/components/settings/ProfileSettings").catch(() => {});
-        import("@/components/settings/IntegrationSettings").catch(() => {});
       },
       { timeout: 3000 },
     );

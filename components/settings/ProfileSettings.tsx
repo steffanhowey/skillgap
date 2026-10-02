@@ -36,7 +36,7 @@ function UsernameStatusIcon({ status }: { status: UsernameStatus }) {
 export function ProfileSettings() {
   const { userId, email } = useCurrentUser();
   const { profile, refetch } = useProfile();
-  const { signOut } = useAuth();
+  const { signOut, user } = useAuth();
   const supabase = createClient();
 
   const [displayName, setDisplayName] = useState<string | null>(null);
@@ -44,12 +44,44 @@ export function ProfileSettings() {
   const [savingUsername, setSavingUsername] = useState(false);
   const [generating, setGenerating] = useState(false);
   const [genMessage, setGenMessage] = useState<string | null>(null);
+  const [nextEmail, setNextEmail] = useState("");
+  const [submittedEmail, setSubmittedEmail] = useState<string | null>(null);
+  const [emailError, setEmailError] = useState<string | null>(null);
+  const [savingEmail, setSavingEmail] = useState(false);
 
   const username = useUsernameValidation(profile?.username ?? "");
   const nameChanged = displayName !== null && displayName !== (profile?.display_name ?? "");
   const usernameChanged = username.value !== (profile?.username ?? "") && username.isValid;
 
   const currentDisplayName = displayName ?? profile?.display_name ?? "";
+  const pendingEmail = user?.new_email ?? submittedEmail;
+
+  const changeEmail = useCallback(async () => {
+    const trimmed = nextEmail.trim();
+    setEmailError(null);
+    if (!trimmed || trimmed.toLowerCase() === (email ?? "").toLowerCase()) {
+      setEmailError("Enter a different email.");
+      return;
+    }
+
+    setSavingEmail(true);
+    try {
+      const { data, error } = await supabase.auth.updateUser(
+        { email: trimmed },
+        { emailRedirectTo: `${window.location.origin}/callback` },
+      );
+      if (error) {
+        setEmailError(error.message);
+        return;
+      }
+      setSubmittedEmail(data.user?.new_email ?? trimmed);
+      setNextEmail("");
+    } catch {
+      setEmailError("Couldn't send the confirmation. Try again.");
+    } finally {
+      setSavingEmail(false);
+    }
+  }, [email, nextEmail, supabase]);
 
   const saveDisplayName = useCallback(async () => {
     if (!userId || !currentDisplayName.trim()) return;
@@ -246,7 +278,7 @@ export function ProfileSettings() {
         )}
       </div>
 
-      {/* Email (read-only) */}
+      {/* Email */}
       <div className="rounded-lg border border-[var(--sg-shell-border)] bg-[var(--sg-shell-50)] p-6">
         <label className="mb-1.5 block text-xs font-medium text-[var(--sg-shell-600)]">
           Email
@@ -257,6 +289,40 @@ export function ProfileSettings() {
           disabled
           className={`${inputClass} cursor-not-allowed opacity-60`}
         />
+        {pendingEmail ? (
+          <p className="mt-3 text-sm text-[var(--sg-shell-600)]">
+            Confirmation sent to {pendingEmail}. {email} stays your address until you confirm.
+          </p>
+        ) : (
+          <div className="mt-4">
+            <label className="mb-1.5 block text-xs font-medium text-[var(--sg-shell-600)]">
+              New email
+            </label>
+            <input
+              type="email"
+              value={nextEmail}
+              onChange={(e) => {
+                setNextEmail(e.target.value);
+                setEmailError(null);
+              }}
+              placeholder="new@example.com"
+              className={inputClass}
+            />
+            {emailError && (
+              <p className="mt-1.5 text-xs text-[var(--sg-coral-500)]">{emailError}</p>
+            )}
+            <Button
+              variant="outline"
+              size="sm"
+              className="mt-3"
+              onClick={() => void changeEmail()}
+              disabled={savingEmail || !nextEmail.trim()}
+              loading={savingEmail}
+            >
+              Send confirmation
+            </Button>
+          </div>
+        )}
       </div>
 
       {/* Function & Fluency */}

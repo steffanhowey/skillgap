@@ -266,23 +266,36 @@ export default async function LandingPage() {
         </section>
       </main>
 
-      {showPulse ? (
-        <footer
-          className="px-6 py-6 text-center"
-          style={{
-            background: BRAND.forest900,
-            color: "rgba(255,255,255,0.45)",
-          }}
-        >
-          <Link
-            href="/pulse"
-            className="text-sm font-medium no-underline transition-colors hover:text-white"
-            style={{ color: BRAND.forest300 }}
-          >
-            See the AI Skills Pulse
-          </Link>
-        </footer>
-      ) : null}
+      <footer
+        className="px-6 py-6 text-center"
+        style={{
+          background: BRAND.forest900,
+          color: "rgba(255,255,255,0.45)",
+        }}
+      >
+        <div className="flex flex-col items-center gap-3">
+          {showPulse ? (
+            <Link
+              href="/pulse"
+              className="text-sm font-medium no-underline transition-colors hover:text-white"
+              style={{ color: BRAND.forest300 }}
+            >
+              See the AI Skills Pulse
+            </Link>
+          ) : null}
+          <nav className="flex items-center justify-center gap-4 text-sm">
+            <Link href="/terms" className="no-underline hover:text-white" style={{ color: BRAND.forest300 }}>
+              Terms
+            </Link>
+            <Link href="/privacy" className="no-underline hover:text-white" style={{ color: BRAND.forest300 }}>
+              Privacy
+            </Link>
+            <Link href="/refund" className="no-underline hover:text-white" style={{ color: BRAND.forest300 }}>
+              Refund policy
+            </Link>
+          </nav>
+        </div>
+      </footer>
 
       <style>{`
         @keyframes pulse {
