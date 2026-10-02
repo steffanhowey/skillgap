@@ -26,6 +26,14 @@ Set these on the Vercel project for Production (and Preview, if you want preview
 - `EMAIL_FROM_PRODUCT`
 - `EMAIL_FROM_AUTH`
 
+**Billing (Stripe dashboard, test mode first):**
+
+- `STRIPE_SECRET_KEY`
+- `STRIPE_WEBHOOK_SECRET`
+- `STRIPE_PRICE_INDIVIDUAL_MONTHLY`
+- `STRIPE_PRICE_FOUNDING_ANNUAL`
+- `STRIPE_PRICE_TEAM_SEAT_MONTHLY`
+
 **Read by the app. Set when that feature should work. Omit to leave the feature off or on its fallback:**
 
 - `GITHUB_CLIENT_ID`
