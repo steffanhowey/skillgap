@@ -2,31 +2,40 @@
 
 import { Suspense, useState, useEffect, useCallback, useRef } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
-import { Logo } from "@/components/shell/Logo";
 import { useAuth } from "@/components/providers/AuthProvider";
-import { createClient } from "@/lib/supabase/client";
-import { useUsernameValidation } from "@/lib/username";
-import { generateHandleFromName } from "@/lib/onboarding/handles";
-import { getMissionRoute, MISSIONS_ROUTE } from "@/lib/appRoutes";
-import type {
-  ProfessionalFunction,
-  FluencyLevel,
-  OnboardingPick,
+import { Button } from "@/components/ui/Button";
+import { HOME_ROUTE } from "@/lib/appRoutes";
+import {
+  FOCUS_OPTIONS,
+  FLUENCY_OPTIONS,
+  FUNCTION_OPTIONS,
+  type FocusArea,
+  type FluencyLevel,
+  type ProfessionalFunction,
 } from "@/lib/onboarding/types";
 import {
   trackStepViewed,
   trackStepCompleted,
   trackFunctionSelected,
   trackFluencySelected,
-  trackPathAccepted,
   trackOnboardingCompleted,
 } from "@/lib/onboarding/tracking";
 import FunctionStep from "./steps/FunctionStep";
 import FluencyStep from "./steps/FluencyStep";
-import PathRecommendationStep from "./steps/PathRecommendationStep";
-import UsernameStep from "./steps/UsernameStep";
+import FocusStep from "./steps/FocusStep";
 
-const STEPS = ["Role", "Fluency", "Mission"];
+const QUESTIONS = [
+  "What do you do?",
+  "How much do you use AI at work today?",
+  "What takes most of your week?",
+] as const;
+
+interface SavedProgress {
+  step: number;
+  primaryFunction: ProfessionalFunction | null;
+  fluencyLevel: FluencyLevel | null;
+  focusAreas: FocusArea[];
+}
 
 export default function OnboardPage() {
   return (
@@ -34,10 +43,7 @@ export default function OnboardPage() {
       fallback={
         <div
           className="flex min-h-screen items-center justify-center"
-          style={{
-            background: "var(--sg-white)",
-            color: "var(--sg-shell-900)",
-          }}
+          style={{ background: "var(--sg-white)", color: "var(--sg-shell-900)" }}
         >
           <p className="text-[var(--sg-shell-600)]">Loading...</p>
         </div>
@@ -52,266 +58,192 @@ function OnboardContent() {
   const { user, authState } = useAuth();
   const router = useRouter();
   const searchParams = useSearchParams();
-  const supabase = createClient();
-
-  // Re-onboarding: existing user sent back to set username only
   const isReOnboard = searchParams.get("step") === "username";
 
-  // Restore wizard progress from localStorage (survives tab close)
-  const savedProgress = useRef(
+  const savedProgress = useRef<SavedProgress | null>(
     (() => {
       if (isReOnboard || typeof window === "undefined") return null;
       try {
         const raw = localStorage.getItem("sg_onboard_progress");
-        return raw ? (JSON.parse(raw) as {
-          step: number;
-          primaryFunction: ProfessionalFunction | null;
-          secondaryFunctions: ProfessionalFunction[];
-          fluencyLevel: FluencyLevel | null;
-        }) : null;
+        return raw ? (JSON.parse(raw) as SavedProgress) : null;
       } catch {
         return null;
       }
-    })()
+    })(),
   );
 
   const [step, setStep] = useState(
-    isReOnboard ? 3 : Math.min(savedProgress.current?.step ?? 0, 2),
+    isReOnboard ? 2 : Math.min(savedProgress.current?.step ?? 0, 2),
   );
   const [saving, setSaving] = useState(false);
-
-  // Timing for analytics
+  const [activeIndex, setActiveIndex] = useState(-1);
   const wizardStartRef = useRef(Date.now());
   const stepStartRef = useRef(Date.now());
 
-  // Selections accumulated through the wizard (restored from localStorage if available)
   const [primaryFunction, setPrimaryFunction] =
     useState<ProfessionalFunction | null>(savedProgress.current?.primaryFunction ?? null);
-  const [secondaryFunctions, setSecondaryFunctions] = useState<
-    ProfessionalFunction[]
-  >(savedProgress.current?.secondaryFunctions ?? []);
   const [fluencyLevel, setFluencyLevel] = useState<FluencyLevel | null>(
-    savedProgress.current?.fluencyLevel ?? null
+    savedProgress.current?.fluencyLevel ?? null,
   );
-  const [selectedPick, setSelectedPick] = useState<OnboardingPick | null>(null);
+  const [focusAreas, setFocusAreas] = useState<FocusArea[]>(
+    savedProgress.current?.focusAreas ?? [],
+  );
 
-  // Username (reuses existing validation hook)
-  const username = useUsernameValidation();
-  const [displayName, setDisplayName] = useState("");
-
-  // Pre-fill display name from user metadata
-  useEffect(() => {
-    if (!user) return;
-
-    if (isReOnboard) {
-      const fetchProfile = async () => {
-        const { data } = await supabase
-          .from("fp_profiles")
-          .select("display_name")
-          .eq("id", user.id)
-          .maybeSingle();
-        if (data?.display_name) setDisplayName(data.display_name);
-      };
-      fetchProfile();
-    } else {
-      const meta = user.user_metadata;
-      const first = (meta?.first_name as string) ?? "";
-      const last = (meta?.last_name as string) ?? "";
-      const full = `${first} ${last}`.trim();
-      if (full) setDisplayName(full);
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [user]);
-
-  // Track step views
   useEffect(() => {
     trackStepViewed(step);
     stepStartRef.current = Date.now();
+    setActiveIndex(-1);
   }, [step]);
 
-  // Persist wizard progress to localStorage on each step change
   useEffect(() => {
     if (isReOnboard) return;
     localStorage.setItem(
       "sg_onboard_progress",
-      JSON.stringify({ step, primaryFunction, secondaryFunctions, fluencyLevel })
+      JSON.stringify({ step, primaryFunction, fluencyLevel, focusAreas }),
     );
-  }, [step, primaryFunction, secondaryFunctions, fluencyLevel, isReOnboard]);
+  }, [step, primaryFunction, fluencyLevel, focusAreas, isReOnboard]);
 
-  // Partial save to DB when function/fluency are set (protects against data loss)
-  useEffect(() => {
-    if (!user || !primaryFunction || !fluencyLevel) return;
-    const supabaseClient = createClient();
-    supabaseClient
-      .from("fp_profiles")
-      .update({
-        primary_function: primaryFunction,
-        secondary_functions: secondaryFunctions,
-        fluency_level: fluencyLevel,
-      })
-      .eq("id", user.id)
-      .then(() => {});
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [fluencyLevel]);
-
-  // Auto-suggest username from display name
-  useEffect(() => {
-    if (step === 3 && displayName && !username.value) {
-      const suggested = displayName
-        .toLowerCase()
-        .replace(/[^a-z0-9]/g, "_")
-        .replace(/_+/g, "_")
-        .replace(/^_|_$/g, "")
-        .slice(0, 20);
-      if (suggested.length >= 3) {
-        username.setValue(suggested);
-      }
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [step, displayName]);
-
-  // --- Step handlers ---
-
-  const handleFunctionSelect = useCallback(
-    (primary: ProfessionalFunction, secondaries: ProfessionalFunction[]) => {
-      const elapsed = Date.now() - stepStartRef.current;
-      trackStepCompleted(0, primary, elapsed);
-      trackFunctionSelected(primary, secondaries);
-      setPrimaryFunction(primary);
-      setSecondaryFunctions(secondaries);
-      setStep(1);
-    },
-    []
-  );
-
-  const handleFluencySelect = useCallback((level: FluencyLevel, notSure?: boolean) => {
-    const elapsed = Date.now() - stepStartRef.current;
-    trackStepCompleted(1, level, elapsed);
-    trackFluencySelected(level, notSure ?? false);
-    setFluencyLevel(level);
-    if (notSure) {
-      localStorage.setItem("sg_fluency_not_sure", "true");
-    }
-    setStep(2);
-  }, []);
-
-  /** Save all onboarding data and complete the wizard. */
-  const completeOnboarding = useCallback(
-    async (handle: string, pickOverride?: OnboardingPick | null) => {
+  const finish = useCallback(
+    async (handleOnly = false) => {
       if (!user) return;
       setSaving(true);
-
-      const pick = pickOverride !== undefined ? pickOverride : selectedPick;
-
-      const updates: Record<string, unknown> = {
-        username: handle,
-        onboarding_completed: true,
-      };
-
-      if (primaryFunction) updates.primary_function = primaryFunction;
-      if (secondaryFunctions.length > 0)
-        updates.secondary_functions = secondaryFunctions;
-      if (fluencyLevel) updates.fluency_level = fluencyLevel;
-      if (pick?.path_id)
-        updates.recommended_first_path_id = pick.path_id;
-
-      // Persist display name if not already saved
-      if (displayName.trim()) updates.display_name = displayName.trim();
-
-      const { error } = await supabase
-        .from("fp_profiles")
-        .update(updates)
-        .eq("id", user.id);
-
-      if (error) {
-        // Handle unique constraint on username
-        if (error.code === "23505") {
+      try {
+        const res = await fetch("/api/onboarding/profile", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(
+            handleOnly
+              ? { handleOnly: true }
+              : {
+                  primaryFunction,
+                  fluencyLevel,
+                  focusAreas,
+                },
+          ),
+        });
+        const data = (await res.json()) as { username?: string };
+        if (!res.ok || !data.username) {
           setSaving(false);
-          if (!isReOnboard && user) {
-            const fallback = `learner_${user.id.replace(/-/g, "").slice(0, 10)}`;
-            if (handle !== fallback) {
-              void completeOnboarding(fallback, pick);
-              return;
-            }
-          }
-          username.setValue(handle);
           return;
         }
-        console.error("[onboard] Save failed:", error);
+
+        const totalDuration = Date.now() - wizardStartRef.current;
+        trackOnboardingCompleted(totalDuration, isReOnboard ? 1 : 3);
+        localStorage.removeItem("sg_onboard_progress");
+
+        fetch("/api/avatar/generate", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ username: data.username, userId: user.id }),
+        }).catch(() => {});
+
+        router.push(HOME_ROUTE);
+      } catch {
+        setSaving(false);
       }
+    },
+    [user, primaryFunction, fluencyLevel, focusAreas, isReOnboard, router],
+  );
 
-      // Track onboarding completion
-      const totalDuration = Date.now() - wizardStartRef.current;
-      trackStepCompleted(3, handle, Date.now() - stepStartRef.current);
-      trackOnboardingCompleted(totalDuration, isReOnboard ? 1 : 3);
+  useEffect(() => {
+    if (!isReOnboard || !user) return;
+    void finish(true);
+  }, [isReOnboard, user, finish]);
 
-      // Clear wizard progress from localStorage
-      localStorage.removeItem("sg_onboard_progress");
+  const optionCount =
+    step === 0
+      ? FUNCTION_OPTIONS.length
+      : step === 1
+        ? FLUENCY_OPTIONS.length
+        : FOCUS_OPTIONS.length;
 
-      // Fire avatar generation in the background
-      fetch("/api/avatar/generate", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ username: handle, userId: user.id }),
-      }).catch(() => {
-        // Fallback avatar will be generated on next profile load
+  const applyIndex = useCallback(
+    (index: number, toggleFocus: boolean) => {
+      setActiveIndex(index);
+      if (step === 0) {
+        const value = FUNCTION_OPTIONS[index]?.value;
+        if (value) setPrimaryFunction(value);
+        return;
+      }
+      if (step === 1) {
+        const value = FLUENCY_OPTIONS[index]?.value;
+        if (value) setFluencyLevel(value);
+        return;
+      }
+      if (!toggleFocus) return;
+      const value = FOCUS_OPTIONS[index]?.value;
+      if (!value) return;
+      setFocusAreas((current) => {
+        if (current.includes(value)) return current.filter((area) => area !== value);
+        if (current.length >= 3) return current;
+        return [...current, value];
       });
+    },
+    [step],
+  );
 
-      if (pick?.path_id) {
-        router.push(getMissionRoute(pick.path_id));
-      } else {
-        router.push(MISSIONS_ROUTE);
+  const goNext = useCallback(() => {
+    const elapsed = Date.now() - stepStartRef.current;
+    if (step === 0) {
+      if (!primaryFunction) return;
+      trackStepCompleted(0, primaryFunction, elapsed);
+      trackFunctionSelected(primaryFunction, []);
+      setStep(1);
+      return;
+    }
+    if (step === 1) {
+      if (!fluencyLevel) return;
+      trackStepCompleted(1, fluencyLevel, elapsed);
+      trackFluencySelected(fluencyLevel, false);
+      setStep(2);
+      return;
+    }
+    if (focusAreas.length === 0) return;
+    trackStepCompleted(2, focusAreas.join(","), elapsed);
+    void finish(false);
+  }, [step, primaryFunction, fluencyLevel, focusAreas, finish]);
+
+  const skip = useCallback(() => {
+    if (step < 2) {
+      setStep((current) => current + 1);
+      return;
+    }
+    void finish(false);
+  }, [step, finish]);
+
+  useEffect(() => {
+    if (isReOnboard) return;
+    function onKey(event: KeyboardEvent): void {
+      const target = event.target as HTMLElement | null;
+      if (target && (target.tagName === "INPUT" || target.tagName === "TEXTAREA")) return;
+      if (event.key === "ArrowDown") {
+        event.preventDefault();
+        setActiveIndex((current) => {
+          const next = current < 0 ? 0 : (current + 1) % optionCount;
+          applyIndex(next, false);
+          return next;
+        });
+      } else if (event.key === "ArrowUp") {
+        event.preventDefault();
+        setActiveIndex((current) => {
+          const next = current <= 0 ? optionCount - 1 : current - 1;
+          applyIndex(next, false);
+          return next;
+        });
+      } else if (event.key === "Enter") {
+        event.preventDefault();
+        goNext();
       }
-    },
-    [
-      user,
-      supabase,
-      router,
-      primaryFunction,
-      secondaryFunctions,
-      fluencyLevel,
-      selectedPick,
-      displayName,
-      username,
-      isReOnboard,
-    ]
-  );
+    }
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [applyIndex, goNext, isReOnboard, optionCount]);
 
-  const handleStartPath = useCallback(
-    (pick: OnboardingPick) => {
-      const elapsed = Date.now() - stepStartRef.current;
-      trackStepCompleted(2, pick.display_title, elapsed);
-      trackPathAccepted(pick.id, true);
-      setSelectedPick(pick);
-      void completeOnboarding(generateHandleFromName(displayName), pick);
-    },
-    [completeOnboarding, displayName]
-  );
-
-  const handleBrowse = useCallback(() => {
-    setSelectedPick(null);
-    void completeOnboarding(generateHandleFromName(displayName), null);
-  }, [completeOnboarding, displayName]);
-
-  const handleUsernameConfirm = useCallback(() => {
-    if (!username.isValid) return;
-    completeOnboarding(username.value);
-  }, [username.isValid, username.value, completeOnboarding]);
-
-  const handleUsernameSkip = useCallback(() => {
-    completeOnboarding(generateHandleFromName(displayName));
-  }, [completeOnboarding, displayName]);
-
-  // --- Auth guard ---
-
-  if (authState === "loading") {
+  if (authState === "loading" || isReOnboard) {
     return (
       <div
         className="flex min-h-screen items-center justify-center"
-        style={{
-          background: "var(--sg-white)",
-          color: "var(--sg-shell-900)",
-        }}
+        style={{ background: "var(--sg-white)", color: "var(--sg-shell-900)" }}
       >
         <p className="text-[var(--sg-shell-600)]">Loading...</p>
       </div>
@@ -323,76 +255,79 @@ function OnboardContent() {
     return null;
   }
 
-  // --- Render ---
-
-  const visibleSteps = isReOnboard ? 1 : STEPS.length;
-  const normalizedStep = isReOnboard ? 0 : step;
+  const canContinue =
+    step === 0 ? primaryFunction != null : step === 1 ? fluencyLevel != null : focusAreas.length > 0;
+  const progress = ((step + 1) / QUESTIONS.length) * 100;
 
   return (
     <div
-      className="flex min-h-screen flex-col"
+      className="min-h-screen"
       style={{
         background: "var(--sg-white)",
         color: "var(--sg-shell-900)",
+        fontFamily: "var(--font-body), 'DM Sans', sans-serif",
       }}
     >
-      <header
-        className="backdrop-blur-md"
-        style={{ background: "var(--sg-white)" }}
-      >
-        <nav className="mx-auto flex h-16 max-w-6xl items-center px-4 sm:px-6">
-          <Logo href="/" height={32} maxWidth={140} />
-        </nav>
-      </header>
+      <div className="fixed inset-x-0 top-0 h-1 bg-[var(--sg-shell-200)]" aria-hidden="true">
+        <div
+          className="h-full bg-[var(--sg-forest-500)] transition-[width] duration-200"
+          style={{ width: `${progress}%` }}
+        />
+      </div>
 
-      <main className="mx-auto w-full max-w-md flex-1 px-4 py-16 sm:py-24">
-        {/* Progress dots */}
-        <div className="mb-10 flex items-center justify-center gap-2">
-          {Array.from({ length: visibleSteps }).map((_, i) => (
-            <div
-              key={i}
-              className={`h-2 rounded-full transition-all ${
-                i === normalizedStep
-                  ? "w-8 bg-[var(--sg-forest-500)]"
-                  : i < normalizedStep
-                    ? "w-2 bg-[var(--sg-shell-500)]"
-                    : "w-2 bg-[var(--sg-shell-border)]"
-              }`}
-            />
-          ))}
-        </div>
+      <main className="mx-auto w-full max-w-xl px-4 pb-32 pt-16 sm:pt-24">
+        <h1
+          className="text-center text-3xl text-[var(--sg-shell-900)]"
+          style={{ fontFamily: "var(--font-display), Fraunces, Georgia, serif" }}
+        >
+          {QUESTIONS[step]}
+        </h1>
 
-        {/* Step 1: Function */}
-        {step === 0 && <FunctionStep onSelect={handleFunctionSelect} />}
-
-        {/* Step 2: Fluency */}
-        {step === 1 && <FluencyStep onSelect={handleFluencySelect} />}
-
-        {/* Step 3: Path recommendation */}
-        {step === 2 && primaryFunction && fluencyLevel && (
-          <PathRecommendationStep
-            primaryFunction={primaryFunction}
-            fluencyLevel={fluencyLevel}
-            secondaryFunctions={secondaryFunctions}
-            saving={saving}
-            onStartPath={handleStartPath}
-            onBrowse={handleBrowse}
+        {step === 0 && (
+          <FunctionStep
+            activeIndex={activeIndex}
+            selected={primaryFunction}
+            onChoose={(index) => applyIndex(index, true)}
           />
         )}
-
-        {/* Step 4: Username */}
-        {step === 3 && (
-          <UsernameStep
-            username={username}
-            saving={saving}
-            confirmLabel={
-              selectedPick?.path_id ? "Start this mission" : "See all missions"
-            }
-            onConfirm={handleUsernameConfirm}
-            onSkip={handleUsernameSkip}
+        {step === 1 && (
+          <FluencyStep
+            activeIndex={activeIndex}
+            selected={fluencyLevel}
+            onChoose={(index) => applyIndex(index, true)}
+          />
+        )}
+        {step === 2 && (
+          <FocusStep
+            activeIndex={activeIndex}
+            selected={focusAreas}
+            onChoose={(index) => applyIndex(index, true)}
           />
         )}
       </main>
+
+      <footer
+        className="fixed inset-x-0 bottom-0 border-t border-[var(--sg-shell-border)]"
+        style={{ background: "var(--sg-shell-50)" }}
+      >
+        <div className="mx-auto flex max-w-xl items-center justify-between gap-4 px-4 py-4">
+          <Button variant="ghost" size="sm" onClick={skip} disabled={saving}>
+            Skip for now
+          </Button>
+          <div className="flex items-center gap-3">
+            <span className="text-sm text-[var(--sg-shell-500)]">or press Enter</span>
+            <Button
+              variant="primary"
+              size="sm"
+              onClick={goNext}
+              disabled={!canContinue || saving}
+              loading={saving}
+            >
+              Continue
+            </Button>
+          </div>
+        </div>
+      </footer>
     </div>
   );
 }

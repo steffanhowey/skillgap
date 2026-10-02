@@ -1,6 +1,6 @@
 // Generated 2026-08-28 from SkillGap (supabase-skillgap).
 // Slice of public tables created for Track F schema v0.
-// fp_profiles regenerated 2026-10-02 after add_profile_billing.
+// fp_profiles regenerated 2026-10-02 after add_profile_billing and focus_areas.
 // Full project dump was not committed because it includes unrelated HumanDeploy tables.
 
 export type Json =
@@ -419,6 +419,7 @@ export type Database = {
           first_mission_completed_at: string | null
           first_name: string | null
           fluency_level: string | null
+          focus_areas: string[]
           function_prompt_dismissed_count: number | null
           id: string
           is_admin: boolean
@@ -449,6 +450,7 @@ export type Database = {
           first_mission_completed_at?: string | null
           first_name?: string | null
           fluency_level?: string | null
+          focus_areas?: string[]
           function_prompt_dismissed_count?: number | null
           id: string
           is_admin?: boolean
@@ -479,6 +481,7 @@ export type Database = {
           first_mission_completed_at?: string | null
           first_name?: string | null
           fluency_level?: string | null
+          focus_areas?: string[]
           function_prompt_dismissed_count?: number | null
           id?: string
           is_admin?: boolean

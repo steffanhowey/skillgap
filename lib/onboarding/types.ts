@@ -59,30 +59,75 @@ export const FUNCTION_OPTIONS: FunctionOption[] = [
   { value: "operations", label: "Operations", icon: "settings" },
 ];
 
-/** Canonical fluency options with anchor descriptions. */
+/** Canonical fluency options. Onboarding shows `anchor` only; `label` is the stored enum name. */
 export const FLUENCY_OPTIONS: FluencyOption[] = [
   {
     value: "exploring",
     label: "Exploring",
-    anchor:
-      "I've heard about AI tools but haven't really used them for work yet.",
+    anchor: "I've tried ChatGPT a few times",
   },
   {
     value: "practicing",
     label: "Practicing",
-    anchor:
-      "I've tried tools like ChatGPT or Copilot a few times, but I'm not consistent.",
+    anchor: "I use it for a draft when I'm stuck",
   },
   {
     value: "proficient",
     label: "Proficient",
-    anchor:
-      "I use AI tools regularly in my workflow and I'm comfortable with prompting.",
+    anchor: "I use it most days for real work",
   },
   {
     value: "advanced",
     label: "Advanced",
-    anchor:
-      "I've built custom workflows, integrated APIs, or taught others to use AI tools.",
+    anchor: "I build workflows with it weekly",
   },
 ];
+
+/** What takes most of the week. Stored on fp_profiles.focus_areas. */
+export type FocusArea =
+  | "content"
+  | "email_campaigns"
+  | "social"
+  | "paid"
+  | "seo"
+  | "reporting"
+  | "research"
+  | "brand"
+  | "launches"
+  | "sales_enablement";
+
+export interface FocusOption {
+  value: FocusArea;
+  label: string;
+}
+
+export const FOCUS_OPTIONS: FocusOption[] = [
+  { value: "content", label: "Content" },
+  { value: "email_campaigns", label: "Email and campaigns" },
+  { value: "social", label: "Social" },
+  { value: "paid", label: "Paid" },
+  { value: "seo", label: "SEO" },
+  { value: "reporting", label: "Reporting and analytics" },
+  { value: "research", label: "Research" },
+  { value: "brand", label: "Brand and creative" },
+  { value: "launches", label: "Launches and product marketing" },
+  { value: "sales_enablement", label: "Sales enablement" },
+];
+
+export const FOCUS_LIMIT = 3;
+
+/**
+ * Keep at most three known focus areas, in first-seen order.
+ */
+export function normalizeFocusAreas(values: readonly string[]): FocusArea[] {
+  const allowed = new Set(FOCUS_OPTIONS.map((option) => option.value));
+  const next: FocusArea[] = [];
+  for (const value of values) {
+    if (!allowed.has(value as FocusArea)) continue;
+    const area = value as FocusArea;
+    if (next.includes(area)) continue;
+    next.push(area);
+    if (next.length === FOCUS_LIMIT) break;
+  }
+  return next;
+}
