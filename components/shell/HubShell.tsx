@@ -9,6 +9,7 @@ import { CLIENT_NAV_HREFS } from "./navItems";
 import { FunctionMigrationModal } from "@/components/onboarding/FunctionMigrationModal";
 
 const PAGE_TITLE_RULES: Array<{ prefix: string; title: string }> = [
+  { prefix: "/home", title: "Home" },
   { prefix: "/missions", title: "Missions" },
   { prefix: "/learn", title: "Missions" },
   { prefix: "/rooms", title: "Rooms" },
@@ -39,6 +40,10 @@ const LazyProfileSettings = lazy(() =>
   import("@/components/settings/ProfileSettings").then((m) => ({ default: m.ProfileSettings }))
 );
 
+const LazyHomePage = lazy(() =>
+  import("@/components/home/HomePage").then((m) => ({ default: m.HomePage }))
+);
+
 const LazyMissionsPage = lazy(() =>
   import("@/components/missions/MissionsPage").then((m) => ({ default: m.MissionsPage }))
 );
@@ -48,6 +53,7 @@ const LazyMissionsPage = lazy(() =>
  * Order determines prefetch priority.
  */
 const TAB_DEFS: Array<{ path: string; render: () => ReactNode }> = [
+  { path: "/home", render: () => <LazyHomePage /> },
   { path: "/missions", render: () => <LazyMissionsPage /> },
   { path: "/rooms", render: () => <LazyPartyList /> },
   { path: "/progress", render: () => <LazyProgressPage /> },
@@ -71,6 +77,7 @@ function usePrefetchTabs(): void {
       () => {
         // Fire-and-forget dynamic imports — populates the module cache
         // so React.lazy resolves instantly when the tab is first visited.
+        import("@/components/home/HomePage").catch(() => {});
         import("@/components/missions/MissionsPage").catch(() => {});
         import("@/components/party/PartyList").catch(() => {});
         import("@/components/progress/ProgressPage").catch(() => {});
@@ -192,7 +199,7 @@ export function HubShell({ children }: { children: ReactNode }) {
             </div>
           </div>
         )}
-        <div className="fp-shell-scroll min-h-0 flex-1 overflow-x-hidden overflow-y-auto px-4 pt-4 pb-5 md:px-5 md:pt-5 md:pb-6 lg:px-6">
+        <div className={`fp-shell-scroll min-h-0 flex-1 overflow-x-hidden overflow-y-auto px-4 pb-5 md:px-5 md:pb-6 lg:px-6 ${effectivePath === "/home" ? "pt-12" : "pt-4 md:pt-5"}`}>
           <div className="mx-auto w-full" style={{ maxWidth: "var(--sg-max-width)" }}>
             {/*
              * Keep-alive tabs: once a tab is visited, it stays mounted (hidden via display:none).

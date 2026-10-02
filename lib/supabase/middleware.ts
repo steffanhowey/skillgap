@@ -38,19 +38,12 @@ export async function updateSession(request: NextRequest) {
     data: { user },
   } = await supabase.auth.getUser();
 
-  // Canonicalize the retired Home route to Missions.
   const { pathname } = request.nextUrl;
-  if (pathname === "/home") {
-    const missionsUrl = request.nextUrl.clone();
-    missionsUrl.pathname = "/missions";
-    missionsUrl.search = "";
-    return NextResponse.redirect(missionsUrl);
-  }
 
-  // Redirect authenticated users from marketing landing to Missions.
+  // Redirect authenticated users from the marketing landing to Home.
   if (user && pathname === "/") {
     const homeUrl = request.nextUrl.clone();
-    homeUrl.pathname = "/missions";
+    homeUrl.pathname = "/home";
     return NextResponse.redirect(homeUrl);
   }
 

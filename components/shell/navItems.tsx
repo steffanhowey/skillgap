@@ -2,7 +2,7 @@
 
 /**
  * Shared nav config for Hub sidebar and session menu drawer.
- * Missions → Profile.
+ * Home → Missions → Profile.
  *
  * Hidden from navigation (routes and code stay): goals, tasks, commitments,
  * notes, projects, labels, stats, labs, integrations/GitHub, and rooms.
@@ -10,6 +10,7 @@
  */
 
 import {
+  House,
   Target,
   TrendingUp,
   type LucideIcon,
@@ -23,6 +24,7 @@ export const NAV_ITEMS: Array<{
   label: string;
   icon: LucideIcon;
 }> = [
+  { id: "home", href: "/home", label: "Home", icon: House },
   { id: "missions", href: "/missions", label: "Missions", icon: Target },
   { id: "progress", href: "/progress", label: "Profile", icon: TrendingUp },
 ];
