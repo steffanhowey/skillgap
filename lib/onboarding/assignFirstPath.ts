@@ -7,14 +7,10 @@ import {
   firstMissionSummary,
   keepFirstModule,
   onboardingCurriculumQuery,
-  type FirstMissionSummary,
+  type FirstPathAssignment,
 } from "@/lib/onboarding/firstMission";
 
-export interface FirstPathAssignment {
-  state: "role" | "preparing" | "generated";
-  path: FirstMissionSummary | null;
-  interim: FirstMissionSummary | null;
-}
+export type { FirstPathAssignment };
 
 interface AssignInput {
   userId: string;

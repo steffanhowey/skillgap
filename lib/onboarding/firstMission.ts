@@ -13,6 +13,12 @@ export interface FirstMissionSummary {
   estimatedMinutes: number;
 }
 
+export interface FirstPathAssignment {
+  state: "role" | "preparing" | "generated";
+  path: FirstMissionSummary | null;
+  interim: FirstMissionSummary | null;
+}
+
 interface PathShape {
   id: string;
   title: string;

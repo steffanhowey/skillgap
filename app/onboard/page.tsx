@@ -4,7 +4,10 @@ import { Suspense, useState, useEffect, useCallback, useRef } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useAuth } from "@/components/providers/AuthProvider";
 import { Button } from "@/components/ui/Button";
-import { HOME_ROUTE } from "@/lib/appRoutes";
+import { HOME_ROUTE, getMissionSoloRoute } from "@/lib/appRoutes";
+import { createClient } from "@/lib/supabase/client";
+import type { FirstPathAssignment } from "@/lib/onboarding/firstMission";
+import { pathWhy } from "@/lib/onboarding/pathWhy";
 import {
   FOCUS_OPTIONS,
   FLUENCY_OPTIONS,
@@ -23,6 +26,7 @@ import {
 import FunctionStep from "./steps/FunctionStep";
 import FluencyStep from "./steps/FluencyStep";
 import FocusStep from "./steps/FocusStep";
+import PathResultStep from "./steps/PathResultStep";
 
 const QUESTIONS = [
   "What do you do?",
@@ -77,6 +81,7 @@ function OnboardContent() {
   );
   const [saving, setSaving] = useState(false);
   const [activeIndex, setActiveIndex] = useState(-1);
+  const [assignment, setAssignment] = useState<FirstPathAssignment | null>(null);
   const wizardStartRef = useRef(Date.now());
   const stepStartRef = useRef(Date.now());
 
@@ -88,6 +93,23 @@ function OnboardContent() {
   const [focusAreas, setFocusAreas] = useState<FocusArea[]>(
     savedProgress.current?.focusAreas ?? [],
   );
+
+  useEffect(() => {
+    if (!user || isReOnboard) return;
+    let cancelled = false;
+    const supabase = createClient();
+    void supabase
+      .from("fp_profiles")
+      .select("onboarding_completed")
+      .eq("id", user.id)
+      .maybeSingle()
+      .then(({ data }) => {
+        if (!cancelled && data?.onboarding_completed) router.replace(HOME_ROUTE);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [user, isReOnboard, router]);
 
   useEffect(() => {
     trackStepViewed(step);
@@ -121,7 +143,10 @@ function OnboardContent() {
                 },
           ),
         });
-        const data = (await res.json()) as { username?: string };
+        const data = (await res.json()) as {
+          username?: string;
+          assignment?: FirstPathAssignment;
+        };
         if (!res.ok || !data.username) {
           setSaving(false);
           return;
@@ -137,7 +162,14 @@ function OnboardContent() {
           body: JSON.stringify({ username: data.username, userId: user.id }),
         }).catch(() => {});
 
-        router.push(HOME_ROUTE);
+        if (handleOnly || !data.assignment) {
+          router.push(HOME_ROUTE);
+          return;
+        }
+
+        setAssignment(data.assignment);
+        setStep(3);
+        setSaving(false);
       } catch {
         setSaving(false);
       }
@@ -212,7 +244,7 @@ function OnboardContent() {
   }, [step, finish]);
 
   useEffect(() => {
-    if (isReOnboard) return;
+    if (isReOnboard || step === 3) return;
     function onKey(event: KeyboardEvent): void {
       const target = event.target as HTMLElement | null;
       if (target && (target.tagName === "INPUT" || target.tagName === "TEXTAREA")) return;
@@ -237,7 +269,7 @@ function OnboardContent() {
     }
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
-  }, [applyIndex, goNext, isReOnboard, optionCount]);
+  }, [applyIndex, goNext, isReOnboard, optionCount, step]);
 
   if (authState === "loading" || isReOnboard) {
     return (
@@ -257,7 +289,35 @@ function OnboardContent() {
 
   const canContinue =
     step === 0 ? primaryFunction != null : step === 1 ? fluencyLevel != null : focusAreas.length > 0;
-  const progress = ((step + 1) / QUESTIONS.length) * 100;
+  const progress = step >= 3 ? 100 : ((step + 1) / QUESTIONS.length) * 100;
+  const mission = assignment?.path ?? assignment?.interim ?? null;
+
+  if (step === 3 && assignment) {
+    return (
+      <div
+        className="flex min-h-screen items-center px-4"
+        style={{
+          background: "var(--sg-white)",
+          color: "var(--sg-shell-900)",
+          fontFamily: "var(--font-body), 'DM Sans', sans-serif",
+        }}
+      >
+        <PathResultStep
+          assignment={assignment}
+          why={pathWhy({
+            role: primaryFunction,
+            fluency: fluencyLevel,
+            focusAreas,
+          })}
+          onStart={() => {
+            if (mission) router.push(getMissionSoloRoute(mission.pathId));
+            else router.push(HOME_ROUTE);
+          }}
+          onHome={() => router.push(HOME_ROUTE)}
+        />
+      </div>
+    );
+  }
 
   return (
     <div
