@@ -201,6 +201,9 @@ describe("legacyPathProjector duplicate protection", () => {
     const brief = buildBrief();
     const adminFixture = {
       from: vi.fn(() => ({
+        update: vi.fn(() => ({
+          eq: vi.fn().mockResolvedValue({ error: null }),
+        })),
         select: vi.fn(() => ({
           eq: vi.fn(() => ({
             maybeSingle: vi.fn().mockResolvedValue({
@@ -252,6 +255,9 @@ describe("legacyPathProjector duplicate protection", () => {
     createAdminClientMock.mockReturnValue({
       from: vi.fn(() => ({
         insert: insertMock,
+        update: vi.fn(() => ({
+          eq: vi.fn().mockResolvedValue({ error: null }),
+        })),
         select: vi.fn(() => ({
           eq: vi.fn(() => ({
             maybeSingle: vi.fn().mockResolvedValue({
