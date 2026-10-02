@@ -20,6 +20,12 @@ Set these on the Vercel project for Production (and Preview, if you want preview
 
 - `CRON_SECRET`
 
+**Email (see `docs/EMAIL_SETUP.md` for the addresses):**
+
+- `RESEND_API_KEY`
+- `EMAIL_FROM_PRODUCT`
+- `EMAIL_FROM_AUTH`
+
 **Read by the app. Set when that feature should work. Omit to leave the feature off or on its fallback:**
 
 - `GITHUB_CLIENT_ID`
