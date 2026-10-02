@@ -8,6 +8,7 @@ import { ContentViewer } from "@/components/learn/ContentViewer";
 import { MethodCard } from "@/components/learn/MethodCard";
 import { ProjectExperienceShell } from "@/components/learn/ProjectExperienceShell";
 import { MissionCard } from "@/components/missions/MissionCard";
+import { PaywallCard } from "@/components/billing/PaywallCard";
 import { Button } from "@/components/ui/Button";
 import { Card } from "@/components/ui/Card";
 import {
@@ -61,6 +62,7 @@ export function SoloMissionPlayer({
     completeItem,
     advanceToItem,
     isCompleted,
+    canDo,
   } = useLearnProgress(pathId);
   const { paths: recommendedPaths, isLoading: recommendationsLoading } =
     usePostCompletionRecommendations({
@@ -92,6 +94,7 @@ export function SoloMissionPlayer({
   }, [advanceToItem, currentItemIndex, initialStepIndex, isLoading, path]);
 
   const currentItem = path?.items[currentItemIndex] ?? null;
+  const showPaywall = currentItem?.task_type === "do" && !canDo;
   const currentItemKey = currentItem
     ? getItemKey(currentItem, currentItemIndex)
     : null;
@@ -202,27 +205,31 @@ export function SoloMissionPlayer({
           ) : null
         }
       >
-        <ContentViewer
-          item={currentItem}
-          isCompleted={isItemCompleted}
-          onComplete={() => {
-            void handleComplete();
-          }}
-          onCompleteWithState={(stateData) => {
-            void handleCompleteWithState(stateData);
-          }}
-          onLeave={() => {
-            router.push(briefingHref);
-          }}
-          variant="missionPage"
-          workshopSubmission={workshopSubmission}
-          itemSubmission={currentItemSubmission}
-          onReviseWorkshop={() => {
-            if (doItemIndex >= 0) {
-              void advanceToItem(doItemIndex);
-            }
-          }}
-        />
+        {showPaywall ? (
+          <PaywallCard />
+        ) : (
+          <ContentViewer
+            item={currentItem}
+            isCompleted={isItemCompleted}
+            onComplete={() => {
+              void handleComplete();
+            }}
+            onCompleteWithState={(stateData) => {
+              void handleCompleteWithState(stateData);
+            }}
+            onLeave={() => {
+              router.push(briefingHref);
+            }}
+            variant="missionPage"
+            workshopSubmission={workshopSubmission}
+            itemSubmission={currentItemSubmission}
+            onReviseWorkshop={() => {
+              if (doItemIndex >= 0) {
+                void advanceToItem(doItemIndex);
+              }
+            }}
+          />
+        )}
       </ProjectExperienceShell>
     );
   }
@@ -365,20 +372,24 @@ export function SoloMissionPlayer({
             </div>
 
             <div className="min-h-[420px]">
-              <ContentViewer
-                item={currentItem}
-                isCompleted={isItemCompleted}
-                onComplete={() => {
-                  void handleComplete();
-                }}
-                onCompleteWithState={(stateData) => {
-                  void handleCompleteWithState(stateData);
-                }}
-                onLeave={() => {
-                  router.push(briefingHref);
-                }}
-                variant="missionPage"
-              />
+              {showPaywall ? (
+                <PaywallCard />
+              ) : (
+                <ContentViewer
+                  item={currentItem}
+                  isCompleted={isItemCompleted}
+                  onComplete={() => {
+                    void handleComplete();
+                  }}
+                  onCompleteWithState={(stateData) => {
+                    void handleCompleteWithState(stateData);
+                  }}
+                  onLeave={() => {
+                    router.push(briefingHref);
+                  }}
+                  variant="missionPage"
+                />
+              )}
             </div>
 
             {showRoomLink ? (

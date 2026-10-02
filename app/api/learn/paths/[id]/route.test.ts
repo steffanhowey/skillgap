@@ -44,6 +44,7 @@ interface PatchFixture {
   pathRow: Record<string, unknown> | null;
   profileRow: Record<string, unknown> | null;
   existingProgress: Record<string, unknown> | null;
+  earliestPathId: string | null;
   completionRow: Record<string, unknown> | null;
   existingAchievement: Record<string, unknown> | null;
   persistReceiptPromise: Promise<{ error: null }>;
@@ -106,6 +107,25 @@ function createAdminClientFixture() {
                           data: fixture.existingProgress,
                           error: null,
                         });
+                      },
+                    };
+                  },
+                  order() {
+                    return {
+                      limit() {
+                        return {
+                          maybeSingle() {
+                            const pathId =
+                              fixture.earliestPathId ??
+                              (fixture.existingProgress
+                                ? (fixture.existingProgress.path_id as string)
+                                : null);
+                            return Promise.resolve({
+                              data: pathId ? { path_id: pathId } : null,
+                              error: null,
+                            });
+                          },
+                        };
                       },
                     };
                   },
@@ -286,6 +306,7 @@ describe("PATCH /api/learn/paths/[id]", () => {
         display_name: "Steffan",
         first_name: "Steffan",
       },
+      earliestPathId: null,
       existingProgress: {
         id: "progress-1",
         user_id: "user-1",
@@ -683,5 +704,39 @@ describe("PATCH /api/learn/paths/[id]", () => {
     expect(body.progress.items_completed).toBe(0);
     expect(body.achievement).toBeUndefined();
     expect(calculateSkillReceiptMock).not.toHaveBeenCalled();
+  });
+
+  it("blocks a later mission's Do step when the plan is free", async () => {
+    fixture.earliestPathId = "path-0";
+    fixture.profileRow = { ...fixture.profileRow, plan: "free" };
+
+    const response = await PATCH(
+      new Request("http://localhost/api/learn/paths/path-1", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ item_completed: "item-1" }),
+      }),
+      { params: Promise.resolve({ id: "path-1" }) },
+    );
+
+    expect(response.status).toBe(402);
+    expect(fixture.progressUpdatePayloads).toEqual([]);
+  });
+
+  it("allows a later mission's Do step when the plan is paid", async () => {
+    fixture.earliestPathId = "path-0";
+    fixture.profileRow = { ...fixture.profileRow, plan: "individual" };
+    calculateSkillReceiptMock.mockResolvedValue(null);
+
+    const response = await PATCH(
+      new Request("http://localhost/api/learn/paths/path-1", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ item_completed: "item-1" }),
+      }),
+      { params: Promise.resolve({ id: "path-1" }) },
+    );
+
+    expect(response.status).not.toBe(402);
   });
 });

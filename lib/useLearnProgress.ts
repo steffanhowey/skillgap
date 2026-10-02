@@ -31,6 +31,7 @@ interface UseLearnProgressReturn {
   percentComplete: number;
   skillReceipt: SkillReceipt | null;
   skillReceiptReady: boolean;
+  canDo: boolean;
 }
 
 function resetProgressState(setters: {
@@ -41,6 +42,7 @@ function resetProgressState(setters: {
   setError: Dispatch<SetStateAction<string | null>>;
   setSkillReceipt: Dispatch<SetStateAction<SkillReceipt | null>>;
   setSkillReceiptReady: Dispatch<SetStateAction<boolean>>;
+  setCanDo: Dispatch<SetStateAction<boolean>>;
 }): void {
   setters.setPath(null);
   setters.setProgress(null);
@@ -49,6 +51,7 @@ function resetProgressState(setters: {
   setters.setError(null);
   setters.setSkillReceipt(null);
   setters.setSkillReceiptReady(false);
+  setters.setCanDo(true);
 }
 
 // ─── Hook ───────────────────────────────────────────────────
@@ -69,9 +72,11 @@ export function useLearnProgress(
   const [error, setError] = useState<string | null>(null);
   const [skillReceipt, setSkillReceipt] = useState<SkillReceipt | null>(null);
   const [skillReceiptReady, setSkillReceiptReady] = useState(false);
+  const [canDo, setCanDo] = useState(true);
   const timeAccum = useRef(0);
   const timeInterval = useRef<ReturnType<typeof setInterval>>(undefined);
   const previousPathIdRef = useRef<string | null>(null);
+  const blockedStartRef = useRef(false);
 
   // Fetch path and progress on mount
   useEffect(() => {
@@ -79,6 +84,7 @@ export function useLearnProgress(
 
     if (!pathId) {
       previousPathIdRef.current = null;
+      blockedStartRef.current = false;
       timeAccum.current = 0;
       resetProgressState({
         setPath,
@@ -88,6 +94,7 @@ export function useLearnProgress(
         setError,
         setSkillReceipt,
         setSkillReceiptReady,
+        setCanDo,
       });
       setIsLoading(false);
       return () => {
@@ -104,6 +111,7 @@ export function useLearnProgress(
 
     const pathChanged = previousPathIdRef.current !== pathId;
     previousPathIdRef.current = pathId;
+    if (pathChanged) blockedStartRef.current = false;
 
     async function loadPath(): Promise<void> {
       setIsLoading(true);
@@ -117,6 +125,7 @@ export function useLearnProgress(
           setError,
           setSkillReceipt,
           setSkillReceiptReady,
+          setCanDo,
         });
       }
 
@@ -129,6 +138,7 @@ export function useLearnProgress(
 
         setPath(data.path);
         setAchievement(data.achievement ?? null);
+        setCanDo(data.can_do !== false);
 
         if (data.progress) {
           setProgress(data.progress);
@@ -208,15 +218,20 @@ export function useLearnProgress(
 
   // Initialize progress if authenticated user has none
   useEffect(() => {
-    if (!pathId || !enabled || !path || progress || isLoading) return;
+    if (!pathId || !enabled || !path || progress || isLoading || blockedStartRef.current) return;
     // Create initial progress record
     fetch(`/api/learn/paths/${pathId}`, {
       method: "PATCH",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ item_index: 0 }),
     })
-      .then((res) => res.json())
-      .then((data) => {
+      .then(async (res) => {
+        if (res.status === 402) {
+          blockedStartRef.current = true;
+          setCanDo(false);
+          return;
+        }
+        const data = await res.json();
         if (data.progress) setProgress(data.progress);
       })
       .catch(() => {});
@@ -277,6 +292,25 @@ export function useLearnProgress(
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ item_completed: contentId, item_state: stateData }),
         });
+        if (res.status === 402) {
+          setCanDo(false);
+          setProgress((prev) => {
+            if (!prev) return prev;
+            const itemStates = { ...(prev.item_states ?? {}) };
+            delete itemStates[contentId];
+            const itemsCompleted = Object.values(itemStates).filter(
+              (s) => s.completed && !s.skipped,
+            ).length;
+            return {
+              ...prev,
+              item_states: itemStates,
+              items_completed: itemsCompleted,
+              status: "in_progress",
+              completed_at: null,
+            };
+          });
+          return;
+        }
         const data = await res.json();
         if (data.progress) setProgress(data.progress);
         if (data.achievement) setAchievement(data.achievement);
@@ -308,6 +342,10 @@ export function useLearnProgress(
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ item_index: index }),
         });
+        if (res.status === 402) {
+          setCanDo(false);
+          return;
+        }
         const data = await res.json();
         if (data.progress) setProgress(data.progress);
       } catch (err) {
@@ -334,5 +372,6 @@ export function useLearnProgress(
       itemsTotal > 0 ? Math.round((itemsCompleted / itemsTotal) * 100) : 0,
     skillReceipt,
     skillReceiptReady,
+    canDo,
   };
 }

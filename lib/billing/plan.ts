@@ -76,3 +76,37 @@ export async function foundingSeatsRemaining(): Promise<number> {
     return 0;
   }
 }
+
+/**
+ * Whether this user may do the mission.
+ * A paid plan can do any mission. On free, the earliest started path is the
+ * free mission and a later path's Do step is blocked. Lookup errors allow
+ * the action so a blip does not paywall everyone.
+ */
+export async function canDoMission(userId: string, pathId: string): Promise<boolean> {
+  const plan = await getPlan(userId);
+  if (plan.plan !== "free") return true;
+
+  try {
+    const admin = createClient();
+    const { data, error } = await admin
+      .from("fp_learning_progress")
+      .select("path_id")
+      .eq("user_id", userId)
+      .order("started_at", { ascending: true })
+      .limit(1)
+      .maybeSingle();
+
+    if (error) {
+      console.error("[billing] mission access lookup failed");
+      return true;
+    }
+
+    const earliest = data?.path_id;
+    if (typeof earliest !== "string" || earliest.length === 0) return true;
+    return earliest === pathId;
+  } catch (err) {
+    console.error("[billing] canDoMission failed", err);
+    return true;
+  }
+}

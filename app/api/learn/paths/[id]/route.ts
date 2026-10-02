@@ -18,6 +18,7 @@ import {
   generateAchievementShareSlug,
   mapAchievementSummaryRow,
 } from "@/lib/achievements/achievementModel";
+import { canDoMission } from "@/lib/billing/plan";
 
 /**
  * GET /api/learn/paths/[id]
@@ -114,11 +115,29 @@ export async function GET(
     path.skill_tags = tagMap.get(id) ?? [];
   }
 
+  const canDo = user ? await canDoMission(user.id, id) : true;
+
   return NextResponse.json({
     path,
     progress,
+    can_do: canDo,
     ...(achievement ? { achievement } : {}),
   });
+}
+
+function targetsDo(
+  items: Array<{ item_id?: string; task_type?: string }>,
+  body: { item_completed?: string; item_index?: number },
+): boolean {
+  if (body.item_completed) {
+    return items.some(
+      (item) => item.item_id === body.item_completed && item.task_type === "do",
+    );
+  }
+  if (body.item_index !== undefined) {
+    return items[body.item_index]?.task_type === "do";
+  }
+  return false;
 }
 
 /**
@@ -186,6 +205,17 @@ export async function PATCH(
     }),
   );
   const pathItems = path.items;
+  const itemRefs = pathItems.map((item) => {
+    const row = item as { item_id?: string; task_type?: string };
+    return { item_id: row.item_id, task_type: row.task_type };
+  });
+
+  if (targetsDo(itemRefs, body)) {
+    const allowed = await canDoMission(user.id, id);
+    if (!allowed) {
+      return NextResponse.json({ error: "payment_required" }, { status: 402 });
+    }
+  }
 
   // Check for existing progress
   const { data: existingProgress } = await admin

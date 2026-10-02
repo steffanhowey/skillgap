@@ -48,6 +48,8 @@ export function ProfileSettings() {
   const [submittedEmail, setSubmittedEmail] = useState<string | null>(null);
   const [emailError, setEmailError] = useState<string | null>(null);
   const [savingEmail, setSavingEmail] = useState(false);
+  const [openingBilling, setOpeningBilling] = useState(false);
+  const [billingError, setBillingError] = useState<string | null>(null);
 
   const username = useUsernameValidation(profile?.username ?? "");
   const nameChanged = displayName !== null && displayName !== (profile?.display_name ?? "");
@@ -136,6 +138,40 @@ export function ProfileSettings() {
       setGenerating(false);
     }
   }, [userId, profile?.username, refetch]);
+
+  async function openBilling(): Promise<void> {
+    setOpeningBilling(true);
+    setBillingError(null);
+    try {
+      const res = await fetch("/api/billing/portal", { method: "POST" });
+      const data = (await res.json()) as { url?: string };
+      if (data.url) {
+        window.location.href = data.url;
+        return;
+      }
+      setBillingError(
+        res.status === 409
+          ? "Subscribe first, then you can manage billing."
+          : "Billing didn't open.",
+      );
+    } catch {
+      setBillingError("Billing didn't open.");
+    }
+    setOpeningBilling(false);
+  }
+
+  const planName =
+    profile?.plan === "individual"
+      ? "Individual"
+      : profile?.plan === "founding"
+        ? "Founding"
+        : profile?.plan === "team"
+          ? "Team"
+          : "Free";
+  const planLine =
+    profile?.plan_status && profile.plan_status !== "active"
+      ? `${planName} · ${profile.plan_status}`
+      : planName;
 
   if (!profile) {
     return (
@@ -332,6 +368,27 @@ export function ProfileSettings() {
         currentFluency={profile.fluency_level as FluencyLevel | null}
         onSaved={refetch}
       />
+
+      <div className="rounded-lg border border-[var(--sg-shell-border)] bg-[var(--sg-shell-50)] p-6">
+        <h2 className="text-lg font-semibold text-[var(--sg-shell-900)]">
+          Billing
+        </h2>
+        <p className="mt-1 text-sm text-[var(--sg-shell-600)]">Plan: {planLine}</p>
+        <div className="mt-4">
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => void openBilling()}
+            loading={openingBilling}
+            disabled={openingBilling}
+          >
+            Manage billing
+          </Button>
+        </div>
+        {billingError ? (
+          <p className="mt-3 text-xs text-[var(--sg-coral-500)]">{billingError}</p>
+        ) : null}
+      </div>
 
       <div className="rounded-lg border border-[var(--sg-shell-border)] bg-[var(--sg-shell-50)] p-6">
         <h2 className="text-lg font-semibold text-[var(--sg-shell-900)]">

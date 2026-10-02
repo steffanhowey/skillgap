@@ -23,10 +23,12 @@ export interface Profile {
   room_bridge_shown_at: string | null;
   room_bridge_dismissed: boolean;
   function_prompt_dismissed_count: number;
+  plan: string | null;
+  plan_status: string | null;
 }
 
 const PROFILE_COLUMNS =
-  "id, username, display_name, avatar_url, avatar_seed, avatar_style_version, email, first_name, last_name, onboarding_completed, primary_function, secondary_functions, fluency_level, recommended_first_path_id, first_mission_completed_at, room_bridge_shown_at, room_bridge_dismissed, function_prompt_dismissed_count";
+  "id, username, display_name, avatar_url, avatar_seed, avatar_style_version, email, first_name, last_name, onboarding_completed, primary_function, secondary_functions, fluency_level, recommended_first_path_id, first_mission_completed_at, room_bridge_shown_at, room_bridge_dismissed, function_prompt_dismissed_count, plan, plan_status";
 
 export function useProfile() {
   const { user } = useAuth();

@@ -33,6 +33,7 @@ Set these on the Vercel project for Production (and Preview, if you want preview
 - `STRIPE_PRICE_INDIVIDUAL_MONTHLY`
 - `STRIPE_PRICE_FOUNDING_ANNUAL`
 - `STRIPE_PRICE_TEAM_SEAT_MONTHLY`
+- `KICKOFF_PAYMENT_LINK_URL` (Stripe Payment Link for the $1,500 kickoff; the team door uses the same link)
 
 **Read by the app. Set when that feature should work. Omit to leave the feature off or on its fallback:**
 
